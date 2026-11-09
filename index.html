@@ -301,25 +301,38 @@
   }
 
   // ---------- transport ----------
-  // One client per broker, all connected in parallel. Every publish goes to
-  // every connected client, and every incoming message may arrive up to once
-  // per broker, so the handlers below must tolerate duplicates.
+  // One client per broker, all connected in parallel, plus the ntfy.sh HTTPS
+  // channel. Every publish goes to every connected client and to ntfy, and
+  // every incoming message may arrive once per broker plus once from ntfy, so
+  // the handlers below must tolerate duplicates.
 
-  function anyConnected() { return clients.some(c => c && c.connected); }
+  function anyMqtt() { return clients.some(c => c && c.connected); }
+  function anyConnected() { return anyMqtt() || ntfyOpen; }
 
   function refreshConnected() {
     const next = anyConnected();
+    const was = connected;
     let redraw = next !== connected;
     connected = next;
     if (next) {
       if (noServer) { noServer = false; redraw = true; }
       clearTimeout(noServerTimer);
       noServerTimer = null;
+      // A path that came up late gets whatever is still pending.
+      if (!was && pending && !host) resendPending();
+    } else if (was) {
+      // Everything dropped after being live: give both paths 15 s to recover.
+      clearTimeout(noServerTimer);
+      noServerTimer = setTimeout(() => {
+        noServerTimer = null;
+        if (!connected) { noServer = true; render(); }
+      }, 15000);
     }
     if (redraw) render();
   }
 
   function endAll(delay) {
+    ntfyStop();
     const old = clients.slice();
     clients = [];
     connected = false;
@@ -332,11 +345,6 @@
 
   function connectAll() {
     if (!room) return;
-    if (!window.mqtt) {
-      ui.hostError = `Network library failed to load. Refresh the page.`;
-      render();
-      return;
-    }
     endAll();
     noServer = false;
     clearTimeout(noServerTimer);
@@ -344,6 +352,14 @@
       noServerTimer = null;
       if (!connected) { noServer = true; render(); }
     }, 15000);
+    // ntfy runs in parallel with the brokers, so start it even if the MQTT
+    // library never loaded.
+    ntfyStart();
+    if (!window.mqtt) {
+      ui.hostError = `Network library failed to load. Refresh the page.`;
+      render();
+      return;
+    }
     clients = BROKERS.map((b, i) => {
       const c = window.mqtt.connect(b.url, Object.assign({
         clientId: `smw_${pid}_${i}_${Math.random().toString(16).slice(2, 8)}`,
@@ -403,6 +419,308 @@
     missingTimer = null;
   }
 
+  // ---------- ntfy.sh fallback (plain HTTPS) ----------
+  // Some mobile networks block every public MQTT broker but still let plain
+  // HTTPS through. Both transports run in parallel: every publish goes to the
+  // brokers and to ntfy, and every receive lands in onMessage(), which already
+  // tolerates duplicates (state by v, private by content, host actions
+  // idempotent).
+  const NTFY = `https://ntfy.sh`;
+  let ntfyTopics = [];
+  let ntfyES = null;
+  let ntfyOpen = false;
+  let ntfyGen = 0;
+  let ntfyLastId = ``;
+  let ntfySince = 0;
+  let ntfyHistoryDone = false;
+  let ntfyRetryTimer = null;
+  let ntfyBackoffUntil = 0;
+  let ntfyStateTimer = null;
+  let ntfyStatePending = null;
+  let ntfyStateLastAt = 0;
+  let ntfyActLastAt = 0;
+  let ntfyActLastBody = ``;
+  const ntfyPosted = new Map();
+
+  const byteLen = s => {
+    try { return new TextEncoder().encode(s).length; } catch { return String(s).length; }
+  };
+
+  // MQTT smwgame/v1/<ROOM>/<rest> maps to ntfy smwg1_<ROOM>_<rest with / as _>.
+  function toNtfy(topic) {
+    return `smwg1_` + String(topic).replace(/^smwgame\/v1\//, ``).split(`/`).join(`_`);
+  }
+
+  function fromNtfy(nt) {
+    const s = String(nt).replace(/^smwg1_/, ``);
+    const i = s.indexOf(`_`);
+    if (i < 0) return `smwgame/v1/${s}/`;
+    const r = s.slice(0, i);
+    const rest = s.slice(i + 1).split(`_`).join(`/`);
+    return `smwgame/v1/${r}${rest ? `/${rest}` : ``}`;
+  }
+
+  // The host only listens for actions; everyone else listens for the state and
+  // their own private message. Same split as the MQTT subscriptions.
+  function ntfyTopicsFor() {
+    if (!room) return [];
+    if (host) return [toNtfy(t(`act`))];
+    return [toNtfy(t(`state`)), toNtfy(t(`p/${pid}`))];
+  }
+
+  function ntfyFetch(url, opts) {
+    try {
+      if (typeof fetch !== `function`) return Promise.resolve(null);
+      return Promise.resolve(fetch(url, opts)).catch(e => {
+        console.warn(`ntfy fetch failed`, e && e.message);
+        return null;
+      });
+    } catch (e) {
+      console.warn(`ntfy fetch failed`, e && e.message);
+      return Promise.resolve(null);
+    }
+  }
+
+  function ntfyStart() {
+    const gen = ++ntfyGen;
+    ntfyTopics = ntfyTopicsFor();
+    ntfyLastId = ``;
+    ntfySince = Math.floor(Date.now() / 1000);
+    ntfyHistoryDone = false;
+    if (!ntfyTopics.length) return;
+    // History first: it stands in for MQTT retained messages.
+    ntfyPoll(gen, true);
+  }
+
+  function ntfyStop() {
+    ntfyGen++;
+    ntfyTopics = [];
+    ntfyHistoryDone = false;
+    ntfyLastId = ``;
+    clearTimeout(ntfyRetryTimer);
+    ntfyRetryTimer = null;
+    clearTimeout(ntfyStateTimer);
+    ntfyStateTimer = null;
+    ntfyStatePending = null;
+    const es = ntfyES;
+    ntfyES = null;
+    ntfyOpen = false;
+    if (es) { try { es.close(); } catch {} }
+  }
+
+  function ntfyPoll(gen, initial) {
+    const topics = ntfyTopics.slice();
+    if (!topics.length) return;
+    const since = ntfyLastId ? encodeURIComponent(ntfyLastId) : (initial ? `all` : String(ntfySince));
+    const url = NTFY + `/` + topics.join(`,`) + `/json?poll=1&since=` + since;
+    ntfyFetch(url, { cache: `no-store` }).then(res => {
+      if (!res || !res.ok) return null;
+      return Promise.resolve(res.text()).catch(() => null);
+    }).then(text => {
+      if (gen !== ntfyGen) return;
+      if (text == null) { if (initial) ntfyAfterPoll(false); return; }
+      try { ntfyIngestList(text); } catch (e) { console.warn(`ntfy parse failed`, e && e.message); }
+      if (initial) ntfyAfterPoll(true);
+    }).catch(e => {
+      if (gen !== ntfyGen) return;
+      console.warn(`ntfy poll failed`, e && e.message);
+      if (initial) ntfyAfterPoll(false);
+    });
+  }
+
+  // Mirrors the tail of subscribeOn(): once one path is ready, the room timer
+  // starts (client) or retained data goes out (host).
+  function ntfyAfterPoll(ok) {
+    if (ntfyHistoryDone) return;
+    ntfyHistoryDone = true;
+    ntfyOpenStream();
+    if (host) {
+      ntfyPublishState();
+      if (host.secrets && host.secrets.priv) Object.keys(host.secrets.priv).forEach(ntfyPublishPriv);
+      render();
+    } else {
+      if (ok) startMissingTimer();
+      if (!pending) queueJoin();
+      render();
+    }
+  }
+
+  function ntfyIngestList(text) {
+    const msgs = [];
+    for (const line of String(text).split(`\n`)) {
+      if (!line.trim()) continue;
+      let m = null;
+      try { m = JSON.parse(line); } catch { continue; }
+      if (m && m.event === `message` && m.topic && typeof m.message === `string`) msgs.push(m);
+    }
+    msgs.sort((a, b) => (Number(a.time) || 0) - (Number(b.time) || 0));
+    for (const m of msgs) ntfyHandle(m);
+  }
+
+  function ntfyHandle(m) {
+    if (!m || m.event !== `message` || typeof m.message !== `string`) return;
+    if (m.id) ntfyLastId = m.id;
+    try { onMessage(fromNtfy(m.topic), m.message); } catch (e) { console.warn(`ntfy message failed`, e && e.message); }
+  }
+
+  function ntfyCloseStream() {
+    const es = ntfyES;
+    ntfyES = null;
+    const wasOpen = ntfyOpen;
+    ntfyOpen = false;
+    if (es) { try { es.close(); } catch {} }
+    if (wasOpen) refreshConnected();
+  }
+
+  function ntfyOpenStream() {
+    ntfyCloseStream();
+    if (!ntfyTopics.length || typeof EventSource !== `function`) return;
+    const since = ntfyLastId || String(ntfySince);
+    const url = NTFY + `/` + ntfyTopics.join(`,`) + `/sse?since=` + encodeURIComponent(since);
+    const gen = ntfyGen;
+    let es = null;
+    try { es = new EventSource(url); } catch (e) { console.warn(`ntfy stream failed`, e && e.message); return; }
+    ntfyES = es;
+    es.onopen = () => {
+      if (gen !== ntfyGen) return;
+      ntfyOpen = true;
+      refreshConnected();
+    };
+    es.onmessage = ev => {
+      if (gen !== ntfyGen) return;
+      let m = null;
+      try { m = JSON.parse(ev.data); } catch { return; }
+      if (!m || m.event !== `message`) return;
+      ntfyHandle(m);
+    };
+    es.onerror = () => {
+      if (gen !== ntfyGen) return;
+      ntfyOpen = false;
+      refreshConnected();
+      // EventSource reconnects by itself unless it gave up for good.
+      if (es.readyState === 2) {
+        ntfyES = null;
+        try { es.close(); } catch {}
+        ntfyReconnect();
+      }
+    };
+  }
+
+  function ntfyReconnect() {
+    if (ntfyRetryTimer || !ntfyTopics.length) return;
+    ntfyRetryTimer = setTimeout(() => {
+      ntfyRetryTimer = null;
+      if (!ntfyTopics.length) return;
+      if (ntfyES && ntfyES.readyState === 1) return;
+      ntfyOpenStream();
+    }, 3000);
+  }
+
+  function ntfyEnsureStream() {
+    if (!room || !ntfyTopics.length) return;
+    if (ntfyES && ntfyES.readyState === 1) return;
+    ntfyOpenStream();
+  }
+
+  function ntfySend(nt, text, key) {
+    if (Date.now() < ntfyBackoffUntil) return;
+    ntfyFetch(NTFY + `/` + nt, { method: `POST`, body: text }).then(res => {
+      // A failed send must not remember the content as posted.
+      if (!res) { if (key != null) ntfyPosted.delete(nt); return; }
+      if (res.status === 429) {
+        ntfyBackoffUntil = Date.now() + 10000;
+        if (key != null) ntfyPosted.delete(nt);
+        console.warn(`ntfy rate limited, backing off`);
+      } else if (!res.ok && key != null) {
+        ntfyPosted.delete(nt);
+      }
+    });
+  }
+
+  // ntfy rejects bodies over 4096 bytes. For state we drop clues from older
+  // rounds in the ntfy copy only; if that is not enough we skip the message.
+  function ntfyFitState(text) {
+    if (byteLen(text) <= 3900) return text;
+    let o = null;
+    try { o = JSON.parse(text); } catch { return null; }
+    const round = Number(o.round) || 0;
+    o.clues = (o.clues || []).filter(c => (Number(c && c.round) || 0) === round);
+    const out = JSON.stringify(o);
+    return byteLen(out) <= 3900 ? out : null;
+  }
+
+  // Republishing an unchanged state (host start, wake, reconnect) is pointless:
+  // ntfy already has it in history.
+  function ntfyNormState(text) {
+    try { const o = JSON.parse(text); delete o.v; return JSON.stringify(o); } catch { return text; }
+  }
+
+  function ntfyPost(topic, body) {
+    if (Date.now() < ntfyBackoffUntil) return;
+    const text = typeof body === `string` ? body : String(body);
+    const nt = toNtfy(topic);
+    if (topic === t(`act`)) {
+      // Retries are useful, but not more often than every 9 s.
+      const now = Date.now();
+      if (text === ntfyActLastBody && now - ntfyActLastAt < 9000) return;
+      ntfyActLastAt = now;
+      ntfyActLastBody = text;
+      ntfySend(nt, text, null);
+      return;
+    }
+    let send = text;
+    if (topic === t(`state`)) {
+      send = ntfyFitState(text);
+      if (send == null) { console.warn(`ntfy: state message too large, skipped`); return; }
+    }
+    const key = topic === t(`state`) ? ntfyNormState(send) : send;
+    if (ntfyPosted.get(nt) === key) return;
+    ntfyPosted.set(nt, key);
+    ntfySend(nt, send, key);
+  }
+
+  // At most one state POST per second, always the newest state (trailing edge).
+  function ntfyQueueState(text) {
+    ntfyStatePending = text;
+    if (ntfyStateTimer) return;
+    const wait = Math.max(0, ntfyStateLastAt + 1000 - Date.now());
+    if (wait <= 0) { ntfyFlushState(); return; }
+    ntfyStateTimer = setTimeout(() => {
+      ntfyStateTimer = null;
+      ntfyFlushState();
+    }, wait);
+  }
+
+  function ntfyFlushState() {
+    const body = ntfyStatePending;
+    ntfyStatePending = null;
+    if (body == null) return;
+    ntfyStateLastAt = Date.now();
+    ntfyPost(t(`state`), body);
+  }
+
+  function ntfyPublishState() {
+    if (!host) return;
+    ntfyQueueState(JSON.stringify(host.state));
+  }
+
+  function ntfyPublishPriv(id) {
+    if (!host || !host.secrets || !host.secrets.priv) return;
+    const msg = host.secrets.priv[id];
+    if (msg) ntfyPost(t(`p/${id}`), JSON.stringify(msg));
+  }
+
+  function ntfyPublish(topic, payload) {
+    if (!room) return;
+    try {
+      const text = typeof payload === `string` ? payload : toStr(payload);
+      if (topic === t(`state`)) ntfyQueueState(text);
+      else ntfyPost(topic, text);
+    } catch (e) {
+      console.warn(`ntfy publish failed`, e && e.message);
+    }
+  }
+
   function retryConnect() {
     if (!room) return;
     noServer = false;
@@ -417,6 +735,7 @@
       if (!c || !c.connected) continue;
       try { c.publish(topic, payload, opts); } catch {}
     }
+    ntfyPublish(topic, payload);
   }
 
   function publishStateOn(c) {
@@ -1156,8 +1475,9 @@
 
   // ---------- views ----------
   function topbar() {
+    const viaHttps = connected && !anyMqtt();
     return `<div class="topbar">
-      <span class="left"><span class="dot ${connected ? `on` : ``}"></span>${connected ? `Live` : `Reconnecting`}</span>
+      <span class="left"><span class="dot ${connected ? `on` : ``}"></span>${connected ? `Live` : `Reconnecting`}${viaHttps ? ` <span style="opacity:.45;font-size:11px">(https)</span>` : ``}</span>
       <span class="code">${esc(room)}</span>
       <button class="linkbtn" data-act="rules">Rules</button>
     </div>`;
@@ -1747,13 +2067,18 @@
   // host sharing the invite link in WhatsApp). Catch up as soon as we return.
   document.addEventListener(`visibilitychange`, () => {
     if (document.visibilityState !== `visible` || !room) return;
-    let any = false;
     for (const c of clients) {
-      if (c.connected) any = true;
-      else { try { c.reconnect(); } catch {} }
+      if (!c.connected) { try { c.reconnect(); } catch {} }
     }
+    // Wake the HTTPS channel and pull anything that happened while asleep.
+    ntfyEnsureStream();
+    if (!host && ntfyTopics.length) ntfyPoll(ntfyGen, false);
     if (host) {
-      if (any) { publishState(); publishAllPriv(); }
+      // Republish even if no broker is up right now: anything that changed
+      // while the page was frozen still has to reach the others. The ntfy copy
+      // is deduped by content, so an unchanged state costs no request.
+      publishState();
+      publishAllPriv();
       render();
     } else if (pending) {
       if (connected) resendPending();
