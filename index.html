@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0f1115">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Spy &amp; Mr. White</title>
+<title>Spy &amp; Mr. White Online</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕵️</text></svg>">
 <style>
   :root {
@@ -15,12 +15,13 @@
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; background: var(--bg); color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif; }
   body { min-height: 100dvh; display: flex; justify-content: center;
     padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom); }
   #app { width: 100%; max-width: 480px; padding: 20px 18px 40px; }
   h1 { font-size: 28px; margin: 8px 0 4px; letter-spacing: -.5px; }
   h2 { font-size: 22px; margin: 0 0 12px; }
+  h3 { font-size: 18px; margin: 0 0 10px; }
   .sub { color: var(--muted); margin: 0 0 20px; font-size: 15px; }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; margin-bottom: 14px; }
   .label { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 10px; }
@@ -39,17 +40,17 @@
   input[type=text]:focus { border-color: var(--accent); }
   .add { padding: 13px 16px; border-radius: 12px; background: var(--line); font-weight: 700; }
   .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-  .chip { background: #111318; border: 1px solid var(--line); border-radius: 999px; padding: 8px 8px 8px 14px;
+  .chip { background: #111318; border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px;
     display: flex; align-items: center; gap: 6px; font-size: 15px; }
-  .chip button { background: var(--line); width: 24px; height: 24px; border-radius: 50%; font-size: 13px; line-height: 24px; }
   .stepper { display: flex; align-items: center; gap: 4px; }
   .stepper button { width: 40px; height: 40px; border-radius: 10px; background: var(--line); font-size: 20px; font-weight: 700; }
   .stepper span { width: 34px; text-align: center; font-size: 20px; font-weight: 700; }
   .seg { display: flex; background: #111318; border: 1px solid var(--line); border-radius: 12px; padding: 3px; }
   .seg button { flex: 1; padding: 10px; border-radius: 9px; background: transparent; color: var(--muted); font-weight: 600; }
   .seg button.on { background: var(--line); color: var(--text); }
-  .hint { color: var(--muted); font-size: 13px; margin-top: 8px; }
+  .hint { color: var(--muted); font-size: 13px; margin-top: 8px; line-height: 1.4; }
   .err { color: var(--spy); font-size: 14px; margin-top: 8px; }
+  .ok { color: var(--civ); font-size: 14px; margin-top: 8px; }
   .big { text-align: center; padding: 40px 16px; }
   .big .who { font-size: 34px; font-weight: 800; margin: 8px 0 24px; word-break: break-word; }
   .reveal-box { border-radius: 20px; padding: 40px 16px; text-align: center; background: #111318;
@@ -75,405 +76,1584 @@
   .emoji { font-size: 64px; line-height: 1; }
   .linkbtn { background: none; color: var(--muted); text-decoration: underline; font-size: 14px; padding: 10px; }
   .rules p { margin: 0 0 10px; line-height: 1.45; color: #d6d9de; font-size: 15px; }
-  .topbar { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 14px; }
+  .topbar { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 14px;
+    gap: 10px; margin-bottom: 8px; min-height: 40px; }
+  .topbar .left { display: flex; align-items: center; gap: 8px; }
+  .topbar .code { font-weight: 800; letter-spacing: 3px; color: var(--text); font-size: 15px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); display: inline-block; flex-shrink: 0; }
+  .dot.on { background: var(--civ); box-shadow: 0 0 8px rgba(62,194,143,.7); }
+  .roomcode { font-size: 44px; font-weight: 800; letter-spacing: 10px; color: var(--accent);
+    text-align: center; margin: 6px 0 4px; padding-left: 10px; }
+  .crown { color: var(--accent); font-size: 14px; }
+  .you { color: var(--muted); font-size: 13px; }
+  .banner { border-radius: 18px; padding: 24px 16px; text-align: center; margin-bottom: 14px;
+    background: radial-gradient(120% 120% at 50% 0%, rgba(245,184,61,.18), rgba(26,29,36,.6));
+    border: 1px solid rgba(245,184,61,.35); }
+  .banner .turn { font-size: 28px; font-weight: 800; margin-top: 4px; word-break: break-word; }
+  .banner .tiny { color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: 1px; }
+  .order li.cur { background: rgba(245,184,61,.10); border-radius: 10px; border-bottom-color: transparent; }
+  .order li.cur .num { background: var(--accent); color: #1a1300; }
+  .order .done { color: var(--muted); }
+  .tick { color: var(--civ); font-weight: 800; margin-left: auto; }
+  .clue { border-bottom: 1px solid var(--line); padding: 10px 2px; font-size: 15px; line-height: 1.4; }
+  .clue:last-child { border-bottom: 0; }
+  .clue b { color: var(--text); }
+  .clue .txt { color: #d6d9de; }
+  .clue .said { color: var(--muted); font-style: italic; }
+  .pillrow { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .pill { background: #111318; border: 1px solid var(--line); border-radius: 999px; padding: 7px 12px; font-size: 14px; }
+  .pill.done { border-color: rgba(62,194,143,.5); color: var(--civ); }
+  .wait { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 14px; margin-top: 10px; }
+  .spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--accent);
+    animation: spin 1s linear infinite; flex-shrink: 0; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+    background: #2a2f3a; color: var(--text); padding: 12px 18px; border-radius: 12px; font-size: 14px;
+    box-shadow: 0 8px 30px rgba(0,0,0,.5); z-index: 50; white-space: nowrap; }
+  .divider { text-align: center; color: var(--muted); font-size: 13px; margin: 16px 0 2px; }
+  details { margin-top: 10px; }
+  summary { color: var(--muted); font-size: 14px; cursor: pointer; padding: 6px 0; }
+  .small { font-size: 13px; }
 </style>
 </head>
 <body>
 <div id="app"></div>
 <script src="words.js"></script>
+<script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
 <script>
 (() => {
-  // ---------- persistence ----------
-  const SETTINGS_KEY = "smw.settings.v1";
-  const GAME_KEY = "smw.game.v1";
-  const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
-  const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+  const app = document.getElementById(`app`);
+  const load = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return v === null || v === undefined ? d : v; } catch { return d; } };
+  const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+  const newId = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
+  const PID_KEY = `smw.pid.v1`;
+  const NAME_KEY = `smw.name.v1`;
+  const pid = (() => {
+    let p = localStorage.getItem(PID_KEY);
+    if (!p) { p = newId(); localStorage.setItem(PID_KEY, p); }
+    return p;
+  })();
 
-  const settings = Object.assign(
-    { names: [], spies: 1, whites: 1, lang: "en", scores: {}, used: { en: [], id: [] } },
-    load(SETTINGS_KEY, {})
-  );
-  let game = load(GAME_KEY, null); // in-progress game survives refresh
-  let ui = { error: "", voteSel: null, guess: "", showRules: false, revealed: false };
-
-  const persist = () => { save(SETTINGS_KEY, settings); save(GAME_KEY, game); };
-
-  // ---------- helpers ----------
-  const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-  const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
-  const norm = s => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]/g, "");
-  const ROLE = {
-    civ: { name: "Civilian", cls: "civ" },
-    spy: { name: "Spy", cls: "spy" },
-    white: { name: "Mr. White", cls: "white" },
-  };
+  const ROOM_ALPHABET = `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`;
+  const BROKERS = [`wss://broker.emqx.io:8084/mqtt`, `wss://broker.hivemq.com:8884/mqtt`];
   const POINTS = { civ: 2, spy: 10, white: 6 };
+  const ROLE = {
+    civ: { name: `Civilian`, cls: `civ` },
+    spy: { name: `Spy`, cls: `spy` },
+    white: { name: `Mr. White`, cls: `white` },
+  };
+  const MAXNAME = 16;
+  const MAXCLUE = 40;
 
-  // Valid role counts: at least one impostor, and civilians must outnumber
-  // or equal impostors with at least 2 civilians (otherwise the game is over at once).
-  function limits(n) {
-    const maxImp = Math.max(0, Math.min(Math.floor(n / 2), n - 2));
-    return { maxImp };
-  }
-  function validate() {
-    const n = settings.names.length;
-    if (n < 3) return "Add at least 3 players.";
-    const imp = settings.spies + settings.whites;
-    if (imp < 1) return "Need at least 1 Spy or Mr. White.";
+  const esc = s => String(s).replace(/&/g, `&amp;`).replace(/</g, `&lt;`).replace(/>/g, `&gt;`)
+    .replace(/\x22/g, `&quot;`).replace(/\x27/g, `&#39;`);
+  const norm = s => String(s).toLowerCase().normalize(`NFD`).replace(/[̀-ͯ]/g, ``).replace(/[^a-z0-9]/g, ``);
+  const shuffle = a => {
+    a = a.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+    }
+    return a;
+  };
+  const toStr = p => typeof p === `string` ? p : new TextDecoder().decode(p);
+  const cleanName = s => String(s || ``).trim().replace(/\s+/g, ` `).slice(0, MAXNAME);
+  const cleanCode = s => String(s || ``).toUpperCase().replace(/[^A-Z0-9]/g, ``).slice(0, 5);
+  const makeCode = () => Array.from({ length: 5 }, () => ROOM_ALPHABET[Math.floor(Math.random() * ROOM_ALPHABET.length)]).join(``);
+
+  function limits(n) { return { maxImp: Math.max(0, Math.min(Math.floor(n / 2), n - 2)) }; }
+
+  // Same validation as the pass-and-play game.
+  function validSettings(settings, n) {
+    if (n < 3) return `Need at least 3 players.`;
+    const imp = (settings.spies || 0) + (settings.whites || 0);
+    if (imp < 1) return `Need at least 1 Spy or Mr. White.`;
     if (imp > limits(n).maxImp) return `Too many impostors for ${n} players (max ${limits(n).maxImp}).`;
-    return "";
+    return ``;
   }
 
-  function pickPair() {
-    const pairs = window.WORD_PAIRS[settings.lang];
-    let used = settings.used[settings.lang] || [];
+  function emptyState(r) {
+    return {
+      v: 0, room: r, hostPid: pid, phase: `lobby`, players: [], waiting: [], kicked: [],
+      settings: { spies: 1, whites: 1, lang: `en` },
+      gameId: null, round: 0, order: [], turn: 0, clues: [], votes: {},
+      tieCandidates: null, resultKind: null, last: null, whiteGuess: null,
+      winner: null, reveal: null,
+    };
+  }
+
+  function fixState(st) {
+    st.players = Array.isArray(st.players) ? st.players : [];
+    st.waiting = Array.isArray(st.waiting) ? st.waiting : [];
+    st.kicked = Array.isArray(st.kicked) ? st.kicked : [];
+    st.settings = Object.assign({ spies: 1, whites: 1, lang: `en` }, st.settings || {});
+    st.order = Array.isArray(st.order) ? st.order : [];
+    st.clues = Array.isArray(st.clues) ? st.clues : [];
+    st.votes = st.votes && typeof st.votes === `object` ? st.votes : {};
+    if (typeof st.v !== `number`) st.v = 0;
+    st.players.forEach(p => {
+      p.alive = p.alive !== false;
+      p.ready = !!p.ready;
+      p.score = p.score || 0;
+    });
+    return st;
+  }
+
+  const playerOf = (st, id) => (st.players || []).find(p => p.pid === id) || null;
+  const aliveOf = st => (st.players || []).filter(p => p.alive);
+  const aliveIds = st => aliveOf(st).map(p => p.pid);
+  const nameOf = (st, id) => (playerOf(st, id) || (st.waiting || []).find(p => p.pid === id) || { name: `?` }).name;
+
+  // ---------- local state ----------
+  let room = ``;
+  let S = null;
+  let lastV = -1;
+  let host = null;
+  let client = null;
+  let connected = false;
+  let brokerIdx = 0;
+  let subDone = false;
+  let roomMissing = false;
+  let missingTimer = null;
+  let connectTimer = null;
+  let switchTimer = null;
+  let pending = null;
+  let lastScreenKey = ``;
+  let lastTurnKey = ``;
+  let myPriv = null;
+  let ui = {
+    showRules: false, showWord: false, voteSel: null, clueText: ``, guessText: ``,
+    nameDraft: localStorage.getItem(NAME_KEY) || ``, codeDraft: ``, homeError: ``,
+    hostError: ``, toast: ``, gameKey: null, phaseKey: null, removed: false,
+  };
+
+  const t = suf => `smwgame/v1/${room}/${suf}`;
+  const memberKey = r => `smw.member.${r}`;
+  const privKey = r => `smw.priv.${r}`;
+  const hostKey = r => `smw.host.${r}`;
+
+  function saveHost() {
+    if (!host) return;
+    save(hostKey(host.state.room), host);
+  }
+
+  function loadHost(r) {
+    try {
+      const h = load(hostKey(r), null);
+      if (!h || !h.state || h.state.room !== r) return null;
+      h.state = fixState(h.state);
+      h.used = h.used || { en: [], id: [] };
+      h.secrets = h.secrets || null;
+      h.state.hostPid = pid;
+      return h;
+    } catch { return null; }
+  }
+
+  function curState() {
+    if (host) return host.state;
+    return S;
+  }
+
+  function myPlayer(st) { return playerOf(st, pid); }
+
+  function privateForMe(st) {
+    if (!st || !st.gameId) return null;
+    if (host && host.secrets && host.secrets.gameId === st.gameId) {
+      return (host.secrets.priv && host.secrets.priv[pid]) || null;
+    }
+    if (myPriv && myPriv.gameId === st.gameId) return myPriv;
+    return null;
+  }
+
+  function toast(msg) {
+    ui.toast = msg;
+    render();
+    setTimeout(() => {
+      if (ui.toast === msg) { ui.toast = ``; render(); }
+    }, 2200);
+  }
+
+  // ---------- transport ----------
+  function connectBroker() {
+    if (!room) return;
+    if (!window.mqtt) {
+      ui.hostError = `Network library failed to load. Refresh the page.`;
+      render();
+      return;
+    }
+    connected = false;
+    brokerIdx = brokerIdx % BROKERS.length;
+    const c = window.mqtt.connect(BROKERS[brokerIdx], {
+      clientId: `smw_${pid}_${Math.random().toString(16).slice(2, 8)}`,
+      clean: true,
+      reconnectPeriod: 2000,
+      connectTimeout: 6000,
+      keepalive: 30,
+    });
+    client = c;
+    let opened = false;
+    clearTimeout(connectTimer);
+    clearTimeout(switchTimer);
+    connectTimer = setTimeout(() => {
+      if (!opened && !connected && client === c) {
+        try { c.end(true); } catch {}
+        if (client === c) client = null;
+        brokerIdx = (brokerIdx + 1) % BROKERS.length;
+        connectBroker();
+      }
+    }, 6000);
+    c.on(`connect`, () => {
+      opened = true;
+      connected = true;
+      subDone = false;
+      clearTimeout(connectTimer);
+      clearTimeout(switchTimer);
+      render();
+      subscribeAll();
+    });
+    c.on(`reconnect`, () => { connected = false; subDone = false; render(); });
+    c.on(`close`, () => {
+      connected = false;
+      subDone = false;
+      render();
+      clearTimeout(switchTimer);
+      switchTimer = setTimeout(() => {
+        if (!connected && client === c) {
+          try { c.end(true); } catch {}
+          if (client === c) client = null;
+          brokerIdx = (brokerIdx + 1) % BROKERS.length;
+          connectBroker();
+        }
+      }, 10000);
+    });
+    c.on(`error`, () => {});
+    c.on(`message`, (topic, payload) => onMessage(topic, payload));
+  }
+
+  function subscribeAll() {
+    if (!client || !client.connected) return;
+    const done = () => {
+      subDone = true;
+      if (host) {
+        hostSync();
+      } else {
+        if (!S) {
+          clearTimeout(missingTimer);
+          missingTimer = setTimeout(() => {
+            if (!S && !host) { roomMissing = true; render(); }
+          }, 5000);
+        }
+        queueJoin();
+      }
+    };
+    if (host) {
+      client.subscribe([t(`act`)], { qos: 1 }, done);
+    } else {
+      client.subscribe([t(`state`), t(`p/${pid}`)], { qos: 1 }, done);
+    }
+  }
+
+  function publishState() {
+    if (!host) return;
+    host.state.v = (host.state.v || 0) + 1;
+    saveHost();
+    S = host.state;
+    if (client && connected) {
+      client.publish(t(`state`), JSON.stringify(host.state), { qos: 1, retain: true });
+    }
+  }
+
+  function publishPriv(id) {
+    if (!host || !host.secrets || !host.secrets.priv) return;
+    const msg = host.secrets.priv[id];
+    if (!msg || !client || !connected) return;
+    client.publish(t(`p/${id}`), JSON.stringify(msg), { qos: 1, retain: true });
+  }
+
+  function publishAllPriv() {
+    if (!host || !host.secrets || !host.secrets.priv) return;
+    Object.keys(host.secrets.priv).forEach(publishPriv);
+  }
+
+  function hostSync() {
+    publishState();
+    publishAllPriv();
+    render();
+  }
+
+  function hostCommit(changed, privIds) {
+    if (!host) return;
+    syncUi(host.state);
+    host.state.v = (host.state.v || 0) + 1;
+    saveHost();
+    S = host.state;
+    if (client && connected) {
+      client.publish(t(`state`), JSON.stringify(host.state), { qos: 1, retain: true });
+      if (privIds) privIds.forEach(publishPriv);
+    }
+    maybeVibrate(S);
+    render();
+  }
+
+  function onMessage(topic, payload) {
+    const raw = toStr(payload);
+    if (topic === t(`state`)) {
+      if (host) return;
+      let st = null;
+      try { st = JSON.parse(raw); } catch { return; }
+      if (!st || st.room !== room) return;
+      if (typeof st.v === `number` && st.v < lastV) return;
+      lastV = typeof st.v === `number` ? st.v : lastV;
+      S = fixState(st);
+      roomMissing = false;
+      clearTimeout(missingTimer);
+      if (S.kicked && S.kicked.includes(pid)) ui.removed = true;
+      syncUi(S);
+      checkPending();
+      maybeVibrate(S);
+      render();
+    } else if (topic === t(`p/${pid}`)) {
+      let msg = null;
+      try { msg = JSON.parse(raw); } catch { return; }
+      if (!msg || !msg.gameId) return;
+      myPriv = msg;
+      save(privKey(room), msg);
+      render();
+    } else if (topic === t(`act`)) {
+      if (!host) return;
+      let a = null;
+      try { a = JSON.parse(raw); } catch { return; }
+      if (!a || !a.type || a.pid === pid) return;
+      if (hostAction(a)) hostCommit(true);
+    }
+  }
+
+  // ---------- client actions with retry ----------
+  function publishAct(action) {
+    if (!client || !connected) return;
+    client.publish(t(`act`), JSON.stringify(action), { qos: 1 });
+  }
+
+  function setPending(action, check) {
+    pending = { action, check, sentAt: 0 };
+    const cur = pending;
+    if (client && connected) {
+      publishAct(action);
+      if (pending === cur) cur.sentAt = Date.now();
+    }
+    render();
+  }
+
+  function queueJoin() {
+    if (host) return;
+    if (S && S.kicked && S.kicked.includes(pid)) { pending = null; ui.removed = true; render(); return; }
+    if (S && (playerOf(S, pid) || (S.waiting || []).some(p => p.pid === pid))) { pending = null; return; }
+    setPending({ type: `join`, pid, name: cleanName(ui.nameDraft) || localStorage.getItem(NAME_KEY) || `Player` }, st => {
+      if (st.kicked && st.kicked.includes(pid)) { ui.removed = true; return true; }
+      return !!playerOf(st, pid) || (st.waiting || []).some(p => p.pid === pid);
+    });
+  }
+
+  function checkPending() {
+    if (!pending || !S) return;
+    if (S.kicked && S.kicked.includes(pid)) {
+      pending = null;
+      ui.removed = true;
+      return;
+    }
+    let done = false;
+    try { done = pending.check(S); } catch {}
+    if (done) pending = null;
+  }
+
+  function resendPending() {
+    if (!pending || host || !client || !connected) return;
+    const cur = pending;
+    publishAct(cur.action);
+    if (pending === cur) pending.sentAt = Date.now();
+  }
+
+  setInterval(() => {
+    if (!pending) return;
+    if (S) checkPending();
+    if (pending && Date.now() - pending.sentAt >= 3000) resendPending();
+  }, 500);
+
+  function sendReady() {
+    if (host) {
+      if (hostAction({ type: `ready`, pid })) hostCommit(true);
+      return;
+    }
+    const st = curState();
+    if (!st || st.phase !== `reveal`) return;
+    setPending({ type: `ready`, pid }, s => {
+      if (s.phase !== `reveal`) return true;
+      const p = playerOf(s, pid);
+      return !!(p && p.ready);
+    });
+  }
+
+  function sendClue(text) {
+    const st = curState();
+    if (!st || st.phase !== `clue`) return;
+    const round = st.round;
+    const clean = String(text || ``).slice(0, MAXCLUE).trim();
+    ui.clueText = ``;
+    if (host) {
+      if (hostAction({ type: `clue`, pid, round, text: clean })) hostCommit(true);
+      return;
+    }
+    setPending({ type: `clue`, pid, round, text: clean }, s => {
+      if (s.phase !== `clue` || s.round !== round) return true;
+      if ((s.clues || []).some(c => c.round === round && c.pid === pid)) return true;
+      const idx = (s.order || []).indexOf(pid);
+      return idx >= 0 && idx < s.turn;
+    });
+  }
+
+  function sendVote(target) {
+    const st = curState();
+    if (!st || st.phase !== `vote` || !target) return;
+    if (host) {
+      if (hostAction({ type: `vote`, pid, target })) hostCommit(true);
+      return;
+    }
+    const epoch = st.tieCandidates ? st.tieCandidates.slice().sort().join(`,`) : `main`;
+    setPending({ type: `vote`, pid, target, round: st.round }, s => {
+      if (s.phase !== `vote` || s.round !== st.round) return true;
+      const now = s.tieCandidates ? s.tieCandidates.slice().sort().join(`,`) : `main`;
+      if (now !== epoch) return true;
+      return s.votes[pid] === target;
+    });
+  }
+
+  function sendGuess(text) {
+    const st = curState();
+    if (!st || st.phase !== `whiteGuess` || !st.last) return;
+    const clean = String(text || ``).slice(0, MAXCLUE).trim();
+    if (!clean) return;
+    ui.guessText = ``;
+    if (host) {
+      if (hostAction({ type: `guess`, pid, text: clean })) hostCommit(true);
+      return;
+    }
+    setPending({ type: `guess`, pid, text: clean }, s => s.phase !== `whiteGuess` || !!s.whiteGuess);
+  }
+
+  function leaveRoom(send) {
+    if (send && client && connected && !host) publishAct({ type: `leave`, pid });
+    pending = null;
+    localStorage.removeItem(memberKey(room));
+    room = ``;
+    S = null;
+    myPriv = null;
+    lastV = -1;
+    const oldClient = client;
+    client = null;
+    connected = false;
+    if (oldClient) setTimeout(() => { try { oldClient.end(true); } catch {} }, 400);
+    history.replaceState(null, ``, location.pathname);
+    render();
+  }
+
+  function syncUi(st) {
+    const gk = st.gameId || `lobby`;
+    if (ui.gameKey !== gk) {
+      ui.gameKey = gk;
+      ui.showWord = false;
+      ui.clueText = ``;
+      ui.guessText = ``;
+      ui.nameDraft = ui.nameDraft;
+    }
+    const pk = `${st.phase}:${st.round}:${st.gameId || ``}:${(st.tieCandidates || []).join(`,`) || ``}`;
+    if (ui.phaseKey !== pk) {
+      ui.phaseKey = pk;
+      if (st.phase === `vote`) ui.voteSel = null;
+    } else if (ui.voteSel) {
+      const allowed = st.tieCandidates || aliveIds(st);
+      const p = playerOf(st, ui.voteSel);
+      if (!p || !p.alive || !allowed.includes(ui.voteSel)) ui.voteSel = null;
+    }
+  }
+
+  function maybeVibrate(st) {
+    if (!st) return;
+    if (st.phase !== `clue`) { lastTurnKey = ``; return; }
+    const key = `${st.gameId}:${st.round}:${st.turn}:${st.order[st.turn] || ``}`;
+    if (lastTurnKey !== key) {
+      lastTurnKey = key;
+      if (st.order[st.turn] === pid && navigator.vibrate) {
+        try { navigator.vibrate(200); } catch {}
+      }
+    }
+  }
+
+  // ---------- host game logic ----------
+  function pickPair(lang) {
+    const pairs = (window.WORD_PAIRS && window.WORD_PAIRS[lang]) || window.WORD_PAIRS.en;
+    let used = host.used[lang] || [];
     if (used.length >= pairs.length) used = [];
-    const free = pairs.map((_, i) => i).filter(i => !used.includes(i));
+    const free = Array.from(pairs.keys()).filter(i => !used.includes(i));
     const idx = free[Math.floor(Math.random() * free.length)];
-    settings.used[settings.lang] = [...used, idx];
-    return Math.random() < .5 ? pairs[idx] : [pairs[idx][1], pairs[idx][0]];
+    host.used[lang] = used.concat([idx]);
+    const pair = pairs[idx];
+    return Math.random() < .5 ? [pair[0], pair[1]] : [pair[1], pair[0]];
   }
 
-  // ---------- game flow ----------
-  function startGame() {
-    const err = validate();
-    if (err) { ui.error = err; return render(); }
-    const [civWord, spyWord] = pickPair();
-    const n = settings.names.length;
-    const roles = shuffle([
-      ...Array(settings.spies).fill("spy"),
-      ...Array(settings.whites).fill("white"),
-      ...Array(n - settings.spies - settings.whites).fill("civ"),
-    ]);
-    const players = settings.names.map((name, i) => ({
-      name, role: roles[i], alive: true,
-      word: roles[i] === "civ" ? civWord : roles[i] === "spy" ? spyWord : null,
-    }));
-    game = { screen: "pass", players, civWord, spyWord, revealIdx: 0, round: 1, order: [], last: null, winner: null, whiteWin: null };
-    ui = { ...ui, error: "", revealed: false };
-    persist(); render();
-  }
-
-  // Speaking order: random start, but Mr. White never speaks first
-  // (speaking first with no word would expose them instantly).
-  function makeOrder() {
-    const alive = game.players.map((p, i) => i).filter(i => game.players[i].alive);
-    const nonWhite = alive.filter(i => game.players[i].role !== "white");
-    const first = nonWhite[Math.floor(Math.random() * nonWhite.length)];
-    const k = alive.indexOf(first);
-    return [...alive.slice(k), ...alive.slice(0, k)];
+  // Speaking order: random start, Mr. White never first.
+  function makeOrder(st) {
+    const alive = aliveIds(st);
+    const roles = (host.secrets && host.secrets.roles) || {};
+    const nonWhite = alive.filter(id => roles[id] !== `white`);
+    const pool = nonWhite.length ? nonWhite : alive;
+    const first = pool[Math.floor(Math.random() * pool.length)];
+    const k = Math.max(0, alive.indexOf(first));
+    return alive.slice(k).concat(alive.slice(0, k));
   }
 
   function checkWinner() {
-    const alive = game.players.filter(p => p.alive);
-    const imps = alive.filter(p => p.role !== "civ").length;
+    const st = host.state;
+    const roles = host.secrets.roles;
+    const alive = aliveOf(st);
+    const imps = alive.filter(p => roles[p.pid] !== `civ`).length;
     const civs = alive.length - imps;
-    if (imps === 0) return "civ";
-    if (civs <= 1) return "imp";
+    if (imps === 0) return `civ`;
+    if (civs <= 1) return `imp`;
     return null;
   }
 
   function finish(winner) {
-    game.winner = winner;
-    game.players.forEach(p => {
-      const won = winner === "civ" ? p.role === "civ"
-        : winner === "white" ? p.role === "white" && p === game.whiteWin
-        : p.role !== "civ";
-      if (won) settings.scores[p.name] = (settings.scores[p.name] || 0) + POINTS[p.role];
+    const st = host.state;
+    st.winner = winner;
+    const roles = host.secrets.roles;
+    st.reveal = {
+      civWord: host.secrets.civ,
+      spyWord: host.secrets.spy,
+      roles: st.players.reduce((o, p) => { o[p.pid] = roles[p.pid] || `civ`; return o; }, {}),
+    };
+    st.players.forEach(p => {
+      const role = roles[p.pid] || `civ`;
+      const won = winner === `civ` ? role === `civ`
+        : winner === `white` ? (!!st.last && p.pid === st.last.pid && role === `white`)
+        : role !== `civ`;
+      if (won) p.score = (p.score || 0) + POINTS[role];
     });
-    game.whiteWin = game.whiteWin ? game.whiteWin.name : null;
-    game.screen = "end";
+    st.phase = `end`;
+    st.tieCandidates = null;
   }
 
-  function eliminate(i) {
-    const p = game.players[i];
-    p.alive = false;
-    game.last = i;
-    ui.voteSel = null;
-    game.screen = p.role === "white" ? "whiteGuess" : "eliminated";
-    ui.guess = "";
-    persist(); render();
-  }
-
-  function afterElimination() {
-    const w = checkWinner();
-    if (w) finish(w);
-    else { game.round++; game.order = makeOrder(); game.screen = "discuss"; }
-    persist(); render();
-  }
-
-  function submitGuess() {
-    const p = game.players[game.last];
-    if (norm(ui.guess) && norm(ui.guess) === norm(game.civWord)) {
-      game.whiteWin = p;
-      finish("white");
-      persist(); return render();
+  function advanceTurn(st) {
+    st.turn++;
+    if (st.turn >= st.order.length) {
+      st.phase = `vote`;
+      st.votes = {};
+      st.tieCandidates = null;
+      st.resultKind = null;
     }
-    game.screen = "eliminated";
-    game.wrongGuess = ui.guess.trim() || "(no guess)";
-    persist(); render();
+  }
+
+  function eliminate(id) {
+    const st = host.state;
+    const p = playerOf(st, id);
+    if (!p) return;
+    p.alive = false;
+    p.ready = true;
+    st.last = { pid: p.pid, role: host.secrets.roles[p.pid] || `civ` };
+    st.whiteGuess = null;
+    st.tieCandidates = null;
+    st.resultKind = null;
+    if (st.last.role === `white`) {
+      st.phase = `whiteGuess`;
+    } else {
+      const w = checkWinner();
+      if (w) finish(w);
+      else { st.phase = `result`; st.resultKind = `elim`; }
+    }
+  }
+
+  function allAliveVoted(st) {
+    const alive = aliveOf(st);
+    return alive.length > 0 && alive.every(p => st.votes[p.pid] != null);
+  }
+
+  function tally() {
+    const st = host.state;
+    const allowed = st.tieCandidates ? st.tieCandidates.slice() : aliveIds(st);
+    const counts = {};
+    aliveOf(st).forEach(p => {
+      const tg = st.votes[p.pid];
+      if (tg && allowed.includes(tg)) counts[tg] = (counts[tg] || 0) + 1;
+    });
+    const max = Math.max(0, ...allowed.map(x => counts[x] || 0));
+    if (max === 0) return false;
+    const tied = allowed.filter(x => (counts[x] || 0) === max);
+    if (tied.length === 1) {
+      eliminate(tied[0]);
+      return true;
+    }
+    if (st.tieCandidates) {
+      st.phase = `result`;
+      st.resultKind = `tie`;
+      st.last = null;
+      st.tieCandidates = tied;
+    } else {
+      st.phase = `vote`;
+      st.resultKind = `revote`;
+      st.tieCandidates = tied;
+      st.votes = {};
+    }
+    return true;
+  }
+
+  function assignGame() {
+    const st = host.state;
+    st.players = st.players.concat(st.waiting).map(p => ({
+      pid: p.pid, name: p.name, alive: true, ready: false, score: p.score || 0,
+    }));
+    st.waiting = [];
+    const n = st.players.length;
+    const err = validSettings(st.settings, n);
+    if (err) { ui.hostError = err; return null; }
+    const [civWord, spyWord] = pickPair(st.settings.lang);
+    const roles = shuffle(
+      Array(st.settings.spies).fill(`spy`)
+        .concat(Array(st.settings.whites).fill(`white`))
+        .concat(Array(n - st.settings.spies - st.settings.whites).fill(`civ`))
+    );
+    const gameId = newId();
+    const roleMap = {};
+    const priv = {};
+    st.players.forEach((p, i) => {
+      const role = roles[i];
+      roleMap[p.pid] = role;
+      priv[p.pid] = role === `white`
+        ? { gameId, role: `white`, word: null }
+        : { gameId, role: `word`, word: role === `civ` ? civWord : spyWord };
+    });
+    host.secrets = { gameId, civ: civWord, spy: spyWord, roles: roleMap, priv };
+    st.gameId = gameId;
+    st.phase = `reveal`;
+    st.round = 1;
+    st.order = [];
+    st.turn = 0;
+    st.clues = [];
+    st.votes = {};
+    st.tieCandidates = null;
+    st.resultKind = null;
+    st.last = null;
+    st.whiteGuess = null;
+    st.winner = null;
+    st.reveal = null;
+    ui.hostError = ``;
+    return Object.keys(priv);
+  }
+
+  function startGameHost() {
+    if (!host || host.state.phase !== `lobby`) return;
+    const privIds = assignGame();
+    hostCommit(true, privIds);
+  }
+
+  function playAgainHost() {
+    if (!host || host.state.phase !== `end`) return;
+    const privIds = assignGame();
+    if (!privIds) { host.state.phase = `lobby`; host.state.gameId = null; }
+    hostCommit(true, privIds);
+  }
+
+  function backToLobbyHost() {
+    if (!host) return;
+    const st = host.state;
+    st.players = st.players.concat(st.waiting).map(p => ({
+      pid: p.pid, name: p.name, alive: true, ready: false, score: p.score || 0,
+    }));
+    st.waiting = [];
+    st.phase = `lobby`;
+    st.gameId = null;
+    st.round = 0;
+    st.order = [];
+    st.turn = 0;
+    st.clues = [];
+    st.votes = {};
+    st.tieCandidates = null;
+    st.resultKind = null;
+    st.last = null;
+    st.whiteGuess = null;
+    st.winner = null;
+    st.reveal = null;
+    host.secrets = null;
+    ui.hostError = ``;
+    hostCommit(true);
+  }
+
+  function nextRoundHost() {
+    if (!host || host.state.phase !== `result`) return;
+    const st = host.state;
+    st.round++;
+    st.order = makeOrder(st);
+    st.turn = 0;
+    st.votes = {};
+    st.tieCandidates = null;
+    st.resultKind = null;
+    st.last = null;
+    st.whiteGuess = null;
+    st.phase = `clue`;
+    ui.hostError = ``;
+    hostCommit(true);
+  }
+
+  function skipSpeakerHost() {
+    if (!host || host.state.phase !== `clue`) return;
+    advanceTurn(host.state);
+    hostCommit(true);
+  }
+
+  function forceTallyHost() {
+    if (!host || host.state.phase !== `vote`) return;
+    if (tally()) hostCommit(true);
+  }
+
+  function uniqueName(base, names) {
+    const nm = cleanName(base) || `Player`;
+    const low = names.map(n => String(n).toLowerCase());
+    if (!low.includes(nm.toLowerCase())) return nm;
+    let i = 2;
+    while (i < 100) {
+      const suffix = ` ${i}`;
+      const cand = nm.slice(0, MAXNAME - suffix.length) + suffix;
+      if (!low.includes(cand.toLowerCase())) return cand;
+      i++;
+    }
+    return nm.slice(0, MAXNAME - 4) + ` 99`;
+  }
+
+  function clampRoles() {
+    if (!host) return;
+    const st = host.state;
+    const max = limits(st.players.length).maxImp;
+    while (st.settings.spies + st.settings.whites > max && st.settings.spies + st.settings.whites > 1) {
+      if (st.settings.whites > 0 && st.settings.whites >= st.settings.spies) st.settings.whites--;
+      else st.settings.spies--;
+    }
+  }
+
+  function hostAction(a) {
+    if (!host || !a || !a.type) return false;
+    const st = host.state;
+    const type = a.type;
+
+    if (type === `join`) {
+      if (st.kicked.includes(a.pid)) return false;
+      if (playerOf(st, a.pid) || st.waiting.some(p => p.pid === a.pid)) return false;
+      const nm = uniqueName(a.name, st.players.concat(st.waiting).map(p => p.name));
+      const p = { pid: a.pid, name: nm, alive: true, ready: false, score: 0 };
+      if (st.phase === `lobby`) st.players.push(p);
+      else st.waiting.push(p);
+      return true;
+    }
+
+    if (type === `leave`) {
+      let changed = false;
+      const wi = st.waiting.findIndex(p => p.pid === a.pid);
+      if (wi >= 0) { st.waiting.splice(wi, 1); changed = true; }
+      const p = playerOf(st, a.pid);
+      if (p) {
+        if (st.phase === `lobby` || st.phase === `end`) {
+          st.players = st.players.filter(x => x.pid !== a.pid);
+          clampRoles();
+          changed = true;
+        } else if (p.alive) {
+          p.alive = false;
+          p.ready = true;
+          changed = true;
+          if (st.phase === `clue` && st.order[st.turn] === a.pid) advanceTurn(st);
+          if (st.phase === `vote`) {
+            if (st.votes[a.pid]) { delete st.votes[a.pid]; }
+            if (allAliveVoted(st)) tally();
+          }
+        }
+      }
+      return changed;
+    }
+
+    if (type === `ready`) {
+      if (st.phase !== `reveal`) return false;
+      const p = playerOf(st, a.pid);
+      if (!p || !p.alive || p.ready) return false;
+      p.ready = true;
+      if (aliveOf(st).every(q => q.ready)) {
+        st.phase = `clue`;
+        st.round = 1;
+        st.order = makeOrder(st);
+        st.turn = 0;
+        st.votes = {};
+        st.tieCandidates = null;
+        st.resultKind = null;
+      }
+      return true;
+    }
+
+    if (type === `clue`) {
+      if (st.phase !== `clue` || a.round !== st.round) return false;
+      if (st.order[st.turn] !== a.pid) return false;
+      if (st.clues.some(c => c.round === st.round && c.pid === a.pid)) return false;
+      const text = String(a.text || ``).slice(0, MAXCLUE).trim();
+      st.clues.push({ round: st.round, pid: a.pid, text });
+      advanceTurn(st);
+      return true;
+    }
+
+    if (type === `vote`) {
+      if (st.phase !== `vote`) return false;
+      if (a.round && a.round !== st.round) return false;
+      const voter = playerOf(st, a.pid);
+      const target = playerOf(st, a.target);
+      if (!voter || !voter.alive || !target || !target.alive) return false;
+      if (voter.pid === target.pid) return false;
+      const allowed = st.tieCandidates ? st.tieCandidates.slice() : aliveIds(st);
+      if (!allowed.includes(target.pid)) return false;
+      if (st.votes[voter.pid] === target.pid) return false;
+      st.votes[voter.pid] = target.pid;
+      if (allAliveVoted(st)) tally();
+      return true;
+    }
+
+    if (type === `guess`) {
+      if (st.phase !== `whiteGuess` || !st.last || st.whiteGuess) return false;
+      if (a.pid !== st.last.pid) return false;
+      const text = String(a.text || ``).slice(0, MAXCLUE).trim();
+      if (!text) return false;
+      const correct = !!norm(text) && norm(text) === norm(host.secrets.civ);
+      st.whiteGuess = { pid: a.pid, text, correct };
+      if (correct) {
+        finish(`white`);
+      } else {
+        const w = checkWinner();
+        if (w) finish(w);
+        else { st.phase = `result`; st.resultKind = `elim`; }
+      }
+      return true;
+    }
+
+    return false;
+  }
+
+  function hostSetRole(kind, d) {
+    if (!host || host.state.phase !== `lobby`) return;
+    const st = host.state;
+    const max = limits(st.players.length).maxImp;
+    const cur = st.settings[kind] || 0;
+    const next = cur + d;
+    const cap = kind === `whites` ? 2 : 99;
+    if (next < 0 || next > cap) return;
+    if (d > 0 && st.settings.spies + st.settings.whites + 1 > Math.max(max, 1)) return;
+    st.settings[kind] = next;
+    ui.hostError = ``;
+    hostCommit(true);
+  }
+
+  function hostSetLang(lang) {
+    if (!host || host.state.phase !== `lobby`) return;
+    host.state.settings.lang = lang === `id` ? `id` : `en`;
+    hostCommit(true);
+  }
+
+  function hostKick(id) {
+    if (!host || host.state.phase !== `lobby`) return;
+    const st = host.state;
+    if (id === pid) return;
+    st.players = st.players.filter(p => p.pid !== id);
+    st.waiting = st.waiting.filter(p => p.pid !== id);
+    if (!st.kicked.includes(id)) st.kicked.push(id);
+    clampRoles();
+    hostCommit(true);
+  }
+
+  // ---------- room setup ----------
+  function updateUrl(r) {
+    try { history.replaceState(null, ``, location.pathname + (r ? `?room=${r}` : ``)); } catch {}
+  }
+
+  function startHosting() {
+    const name = cleanName(ui.nameDraft);
+    if (!name) { ui.homeError = `Enter your name first.`; render(); return; }
+    ui.nameDraft = name;
+    localStorage.setItem(NAME_KEY, name);
+    ui.homeError = ``;
+    room = makeCode();
+    const st = emptyState(room);
+    st.players.push({ pid, name, alive: true, ready: false, score: 0 });
+    host = { state: st, secrets: null, used: { en: [], id: [] } };
+    localStorage.setItem(`smw.lastHost`, room);
+    saveHost();
+    updateUrl(room);
+    S = st;
+    render();
+    connectBroker();
+  }
+
+  function joinRoomNow(code, name) {
+    const c = cleanCode(code);
+    if (c.length !== 5) { ui.homeError = `Enter the 5 character room code.`; render(); return; }
+    if (!name) { ui.homeError = `Enter your name first.`; render(); return; }
+    ui.nameDraft = name;
+    localStorage.setItem(NAME_KEY, name);
+    localStorage.setItem(memberKey(c), `1`);
+    ui.homeError = ``;
+    ui.removed = false;
+    room = c;
+    S = null;
+    lastV = -1;
+    myPriv = load(privKey(c), null);
+    updateUrl(c);
+    render();
+    connectBroker();
+  }
+
+  function shareInvite() {
+    const url = location.origin + location.pathname + `?room=` + room;
+    if (navigator.share) {
+      navigator.share({ title: `Spy & Mr. White`, text: `Join my room ${room}`, url })
+        .catch(e => {
+          if (e && e.name === `AbortError`) return;
+          copyText(url);
+        });
+      return;
+    }
+    copyText(url);
+  }
+
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => toast(`Copied invite link`)).catch(() => {
+        fallbackCopy(text);
+        toast(`Copied invite link`);
+      });
+    } else {
+      fallbackCopy(text);
+      toast(`Copied invite link`);
+    }
+  }
+
+  function fallbackCopy(text) {
+    const ta = document.createElement(`textarea`);
+    ta.value = text;
+    ta.style.position = `fixed`;
+    ta.style.opacity = `0`;
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand(`copy`); } catch {}
+    document.body.removeChild(ta);
+  }
+
+  function boot() {
+    const params = new URLSearchParams(location.search);
+    const r = cleanCode(params.get(`room`) || ``);
+    if (r.length === 5) {
+      const h = loadHost(r);
+      if (h) {
+        room = r;
+        host = h;
+        S = h.state;
+        localStorage.setItem(`smw.lastHost`, r);
+        render();
+        connectBroker();
+        return;
+      }
+      room = r;
+      ui.codeDraft = r;
+      if (cleanName(ui.nameDraft) && localStorage.getItem(memberKey(r))) {
+        myPriv = load(privKey(r), null);
+        render();
+        connectBroker();
+        return;
+      }
+      render();
+      setTimeout(() => {
+        const el = document.getElementById(`nameIn`);
+        if (el) el.focus();
+      }, 50);
+      return;
+    }
+    render();
   }
 
   // ---------- views ----------
-  const views = {
-    setup() {
-      const n = settings.names.length;
-      const { maxImp } = limits(n);
-      const civs = n - settings.spies - settings.whites;
-      const scored = settings.names.some(nm => settings.scores[nm]);
-      return `
-        <h1>🕵️ Spy &amp; Mr. White</h1>
-        <p class="sub">Pass-and-play word bluffing game. One phone, everyone around it.</p>
-
-        <div class="card">
-          <div class="label">Players (${n})</div>
-          <form class="row" data-form="add">
-            <input class="grow" type="text" id="nameIn" placeholder="Player name" maxlength="16" autocomplete="off" enterkeyhint="done">
-            <button class="add" type="submit">Add</button>
-          </form>
-          <div class="chips">
-            ${settings.names.map((nm, i) => `<span class="chip">${esc(nm)}<button data-act="rm" data-i="${i}" aria-label="Remove">✕</button></span>`).join("")}
-          </div>
-          ${n === 0 ? `<div class="hint">Add everyone in the order you sit.</div>` : ""}
-        </div>
-
-        <div class="card">
-          <div class="label">Roles</div>
-          <div class="row"><span class="tag spy">Spy</span><span class="grow"></span>
-            <div class="stepper"><button data-act="spies" data-d="-1">−</button><span>${settings.spies}</span><button data-act="spies" data-d="1">+</button></div></div>
-          <div class="row"><span class="tag white">Mr. White</span><span class="grow"></span>
-            <div class="stepper"><button data-act="whites" data-d="-1">−</button><span>${settings.whites}</span><button data-act="whites" data-d="1">+</button></div></div>
-          <div class="row"><span class="tag civ">Civilians</span><span class="grow"></span><span style="font-size:20px;font-weight:700;width:34px;text-align:center;margin-right:44px">${Math.max(0, civs)}</span></div>
-          ${n >= 3 ? `<div class="hint">Max ${maxImp} Spy + Mr. White for ${n} players.</div>` : ""}
-        </div>
-
-        <div class="card">
-          <div class="label">Words</div>
-          <div class="seg">
-            <button data-act="lang" data-v="en" class="${settings.lang === "en" ? "on" : ""}">English</button>
-            <button data-act="lang" data-v="id" class="${settings.lang === "id" ? "on" : ""}">Bahasa Indonesia</button>
-          </div>
-        </div>
-
-        ${scored ? `<div class="card"><div class="label">Scoreboard</div><ul class="list">
-          ${settings.names.slice().sort((a, b) => (settings.scores[b] || 0) - (settings.scores[a] || 0))
-            .map(nm => `<li>${esc(nm)}<span class="score">${settings.scores[nm] || 0}</span></li>`).join("")}
-          </ul><button class="linkbtn" data-act="resetScores">Reset scores</button></div>` : ""}
-
-        ${ui.error ? `<div class="err">${esc(ui.error)}</div>` : ""}
-        <button class="btn" data-act="start">Start game</button>
-        <div class="center"><button class="linkbtn" data-act="rules">How to play</button></div>
-      `;
-    },
-
-    pass() {
-      const p = game.players[game.revealIdx];
-      if (!ui.revealed) return `
-        <div class="topbar"><span>Secret words</span><span>${game.revealIdx + 1} / ${game.players.length}</span></div>
-        <div class="big">
-          <div class="emoji">📱</div>
-          <p class="sub" style="margin-top:20px">Pass the phone to</p>
-          <div class="who">${esc(p.name)}</div>
-          <button class="btn" data-act="show">I'm ${esc(p.name)}, show my word</button>
-        </div>`;
-      const isWhite = p.role === "white";
-      const last = game.revealIdx === game.players.length - 1;
-      return `
-        <div class="topbar"><span>${esc(p.name)}</span><span>${game.revealIdx + 1} / ${game.players.length}</span></div>
-        <div class="reveal-box">
-          ${isWhite
-            ? `<div class="emoji">🎩</div><div class="word">You are Mr. White</div>
-               <p class="sub">You have no word. Listen to the others, blend in, and try to guess their word.</p>`
-            : `<p class="sub" style="margin:0">Your secret word</p><div class="word">${esc(p.word)}</div>
-               <p class="sub">Don't say it out loud. Someone may have a different word.</p>`}
-        </div>
-        <button class="btn" data-act="hide">${last ? "Hide & start round" : "Hide & pass on"}</button>`;
-    },
-
-    discuss() {
-      return `
-        <div class="topbar"><span>Round ${game.round}</span><span>${game.players.filter(p => p.alive).length} alive</span></div>
-        <h2 style="margin-top:14px">Give one clue each</h2>
-        <p class="sub">Describe your word in a single word or short phrase, in this order:</p>
-        <div class="card"><ul class="list">
-          ${game.order.map((i, k) => `<li><span class="num">${k + 1}</span>${esc(game.players[i].name)}</li>`).join("")}
-        </ul></div>
-        ${game.players.some(p => !p.alive) ? `<div class="card"><div class="label">Out</div><ul class="list">
-          ${game.players.filter(p => !p.alive).map(p => `<li class="dead">${esc(p.name)}</li>`).join("")}</ul></div>` : ""}
-        <button class="btn" data-act="toVote">Everyone spoke, vote!</button>
-        <div class="center"><button class="linkbtn" data-act="peek">Forgot your word?</button></div>`;
-    },
-
-    vote() {
-      const alive = game.players.map((p, i) => ({ p, i })).filter(x => x.p.alive);
-      return `
-        <div class="topbar"><span>Round ${game.round}</span><span>Vote</span></div>
-        <h2 style="margin-top:14px">Who gets voted out?</h2>
-        <p class="sub">Discuss, vote by pointing, then tap the player with the most votes.</p>
-        <div class="vote">
-          ${alive.map(x => `<button data-act="sel" data-i="${x.i}" class="${ui.voteSel === x.i ? "sel" : ""}">${esc(x.p.name)}</button>`).join("")}
-        </div>
-        <button class="btn danger" data-act="eliminate" ${ui.voteSel == null ? "disabled" : ""}>
-          ${ui.voteSel == null ? "Select a player" : `Eliminate ${esc(game.players[ui.voteSel].name)}`}</button>
-        <button class="btn ghost" data-act="backDiscuss">Back</button>`;
-    },
-
-    whiteGuess() {
-      const p = game.players[game.last];
-      return `
-        <div class="big" style="padding-bottom:10px">
-          <div class="emoji">🎩</div>
-          <div class="who" style="margin-bottom:6px">${esc(p.name)} was Mr. White!</div>
-          <p class="sub">Last chance: guess the civilians' word. Get it right and Mr. White wins.</p>
-        </div>
-        <form data-form="guess">
-          <input type="text" id="guessIn" placeholder="Your guess" autocomplete="off" autocapitalize="off" enterkeyhint="go">
-          <button class="btn" type="submit">Submit guess</button>
-        </form>`;
-    },
-
-    eliminated() {
-      const p = game.players[game.last];
-      const r = ROLE[p.role];
-      return `
-        <div class="big">
-          <div class="emoji">${p.role === "civ" ? "😇" : p.role === "spy" ? "🕵️" : "🎩"}</div>
-          <div class="who" style="margin-bottom:10px">${esc(p.name)}</div>
-          <span class="tag ${r.cls}">${r.name}</span>
-          ${p.role === "white" ? `<p class="sub" style="margin-top:16px">Guessed "${esc(game.wrongGuess || "")}". Wrong!</p>` : ""}
-        </div>
-        <button class="btn" data-act="continue">Continue</button>`;
-    },
-
-    end() {
-      const w = game.winner;
-      const title = w === "civ" ? "Civilians win! 😇" : w === "white" ? `${esc(game.whiteWin)} (Mr. White) wins! 🎩` : "Impostors win! 🕵️";
-      return `
-        <div class="center" style="padding:20px 0 10px">
-          <h1>${title}</h1>
-          ${w === "white" ? `<p class="sub">Guessed the word correctly.</p>` : ""}
-        </div>
-        <div class="card">
-          <div class="row"><span class="tag civ">Civilians</span><span class="grow"></span><b>${esc(game.civWord)}</b></div>
-          <div class="row"><span class="tag spy">Spies</span><span class="grow"></span><b>${esc(game.spyWord)}</b></div>
-        </div>
-        <div class="card"><ul class="list">
-          ${game.players.map(p => `<li><span class="${p.alive ? "" : "dead"}">${esc(p.name)}</span>
-            <span class="tag ${ROLE[p.role].cls}" style="margin-left:auto">${ROLE[p.role].name}</span>
-            <span class="score" style="margin-left:10px;min-width:30px;text-align:right">${settings.scores[p.name] || 0}</span></li>`).join("")}
-        </ul></div>
-        <button class="btn" data-act="again">Play again</button>
-        <button class="btn ghost" data-act="toSetup">Change players / settings</button>`;
-    },
-
-    peek() {
-      return `
-        <h2>Forgot your word?</h2>
-        <p class="sub">Tap your name, look privately, then hide it.</p>
-        <div class="vote">
-          ${game.players.map((p, i) => p.alive ? `<button data-act="peekOne" data-i="${i}">${esc(p.name)}</button>` : "").join("")}
-        </div>
-        <button class="btn ghost" data-act="backDiscuss">Back</button>`;
-    },
-
-    peekOne() {
-      const p = game.players[game.peekIdx];
-      return `
-        <div class="topbar"><span>${esc(p.name)}</span><span></span></div>
-        <div class="reveal-box">
-          ${p.role === "white" ? `<div class="emoji">🎩</div><div class="word">You are Mr. White</div>`
-            : `<p class="sub" style="margin:0">Your secret word</p><div class="word">${esc(p.word)}</div>`}
-        </div>
-        <button class="btn" data-act="backDiscuss">Hide</button>`;
-    },
-
-    rules() {
-      return `
-        <h2>How to play</h2>
-        <div class="card rules">
-          <p><b>Setup.</b> Everyone gets a secret word, passed around on one phone. Most players are <span class="tag civ">Civilians</span> and share the same word.
-          <span class="tag spy">Spies</span> get a <i>similar but different</i> word, and don't know they're the spy. <span class="tag white">Mr. White</span> gets no word at all and knows it.</p>
-          <p><b>Clues.</b> Each round, in the order shown, every player says one clue about their word. Be vague enough not to help the impostors, but clear enough to prove you're a civilian.</p>
-          <p><b>Vote.</b> Discuss, then vote out one player. Their role is revealed. If Mr. White is voted out, they get one guess at the civilians' word: correct means Mr. White wins instantly.</p>
-          <p><b>Winning.</b> Civilians win when every Spy and Mr. White is out. Impostors win if only one civilian is left.</p>
-          <p><b>Points.</b> Winning civilians +2, spies +10, Mr. White +6.</p>
-        </div>
-        <button class="btn" data-act="closeRules">Got it</button>`;
-    },
-  };
-
-  // ---------- render & events ----------
-  const app = document.getElementById("app");
-  function render() {
-    const screen = ui.showRules ? "rules" : game ? game.screen : "setup";
-    app.innerHTML = views[screen]();
-    window.scrollTo(0, 0);
-    const f = app.querySelector("#nameIn, #guessIn");
-    if (f && screen === "whiteGuess") f.focus();
+  function topbar() {
+    return `<div class="topbar">
+      <span class="left"><span class="dot ${connected ? `on` : ``}"></span>${connected ? `Live` : `Connecting`}</span>
+      <span class="code">${esc(room)}</span>
+      <button class="linkbtn" data-act="rules">Rules</button>
+    </div>`;
   }
 
-  app.addEventListener("submit", e => {
+  function roleTag(role) {
+    const r = ROLE[role] || ROLE.civ;
+    return `<span class="tag ${r.cls}">${r.name}</span>`;
+  }
+
+  function langName(l) { return l === `id` ? `Bahasa Indonesia` : `English`; }
+
+  function viewHome() {
+    const last = localStorage.getItem(`smw.lastHost`);
+    const canResume = last && loadHost(last);
+    return `
+      <h1>🕵️ Spy &amp; Mr. White</h1>
+      <p class="sub">Word bluffing for friends on their own phones. Create a room, share the code, play together.</p>
+      <div class="card">
+        <div class="label">Your name</div>
+        <input id="nameIn" type="text" value="${esc(ui.nameDraft)}" placeholder="Your name" maxlength="16" autocomplete="nickname" enterkeyhint="done">
+      </div>
+      ${ui.homeError ? `<div class="err">${esc(ui.homeError)}</div>` : ``}
+      <button class="btn" data-act="create">Create room</button>
+      ${canResume ? `<button class="btn ghost" data-act="resume">Resume room ${esc(last)} as host</button>` : ``}
+      <div class="divider">or join a room</div>
+      <div class="card">
+        <div class="label">Room code</div>
+        <form data-form="join">
+          <input id="codeIn" type="text" value="${esc(ui.codeDraft)}" placeholder="ABCDE" maxlength="5" autocapitalize="characters" autocomplete="off" spellcheck="false" enterkeyhint="go">
+          <button class="btn" type="submit">Join room</button>
+        </form>
+      </div>
+      <div class="center"><button class="linkbtn" data-act="rules">How to play</button></div>
+      <div class="center" style="margin-top:20px"><a class="linkbtn" href="local.html">Playing on one phone? Pass-and-play mode</a></div>
+    `;
+  }
+
+  function viewConnecting() {
+    if (roomMissing) {
+      return `${topbar()}
+        <div class="big">
+          <div class="emoji">🔍</div>
+          <div class="who" style="font-size:26px">Room not found</div>
+          <p class="sub">No game is running in room ${esc(room)}. Check the code, or ask the host to create it again.</p>
+          <button class="btn" data-act="backHome">Back</button>
+        </div>`;
+    }
+    return `${topbar()}
+      <div class="big">
+        <div class="wait" style="justify-content:center"><span class="spin"></span> Connecting to room ${esc(room)}</div>
+        <p class="sub" style="margin-top:18px">Waiting for the host to answer.</p>
+        <button class="btn ghost" data-act="backHome">Cancel</button>
+      </div>`;
+  }
+
+  function viewRemoved() {
+    return `${topbar()}
+      <div class="big">
+        <div class="emoji">🚪</div>
+        <div class="who" style="font-size:26px">You were removed</div>
+        <p class="sub">The host removed you from room ${esc(room)}.</p>
+        <button class="btn" data-act="backHome">Back to start</button>
+      </div>`;
+  }
+
+  function viewWaiting(st) {
+    const w = (st.waiting || []).find(p => p.pid === pid);
+    return `${topbar()}
+      <h2 style="margin-top:14px">Game in progress</h2>
+      <div class="card">
+        <p class="sub" style="margin:0">You will join the next round of play.</p>
+        <div class="hint">Room ${esc(room)}. Keep this page open.</div>
+      </div>
+      ${w ? `<div class="center"><div class="pill">You are on the waiting list</div></div>` : ``}
+      <div class="wait"><span class="spin"></span> Waiting for the current game to finish</div>
+    `;
+  }
+
+  function viewLobby(st) {
+    const isHost = !!host;
+    const n = st.players.length;
+    const maxImp = limits(n).maxImp;
+    const civs = Math.max(0, n - st.settings.spies - st.settings.whites);
+    let html = `${topbar()}
+      <div class="card" style="text-align:center">
+        <div class="label" style="margin-bottom:0">Room code</div>
+        <div class="roomcode">${esc(room)}</div>
+        <button class="btn ghost" data-act="share">Share invite link</button>
+      </div>
+      <div class="card">
+        <div class="label">Players (${n})</div>
+        <ul class="list">
+          ${st.players.map((p, i) => `<li>
+            <span class="num">${i + 1}</span>
+            <span>${esc(p.name)}${p.pid === st.hostPid ? ` <span class="crown">♛</span>` : ``}${p.pid === pid ? ` <span class="you">(you)</span>` : ``}</span>
+            ${p.score ? `<span class="score">${p.score}</span>` : ``}
+            ${isHost && p.pid !== pid ? `<button class="linkbtn" data-act="kick" data-id="${esc(p.pid)}">Kick</button>` : ``}
+          </li>`).join(``)}
+        </ul>
+        ${st.waiting.length ? `<div class="hint">Waiting for next game: ${st.waiting.map(p => esc(p.name)).join(`, `)}</div>` : ``}
+      </div>`;
+
+    if (isHost) {
+      html += `<div class="card">
+        <div class="label">Roles</div>
+        <div class="row"><span class="tag spy">Spy</span><span class="grow"></span>
+          <div class="stepper">
+            <button data-act="role" data-kind="spies" data-d="-1" aria-label="Fewer spies">-</button>
+            <span>${st.settings.spies}</span>
+            <button data-act="role" data-kind="spies" data-d="1" aria-label="More spies">+</button>
+          </div></div>
+        <div class="row"><span class="tag white">Mr. White</span><span class="grow"></span>
+          <div class="stepper">
+            <button data-act="role" data-kind="whites" data-d="-1" aria-label="Fewer Mr. White">-</button>
+            <span>${st.settings.whites}</span>
+            <button data-act="role" data-kind="whites" data-d="1" aria-label="More Mr. White">+</button>
+          </div></div>
+        <div class="row"><span class="tag civ">Civilians</span><span class="grow"></span><b style="font-size:20px">${civs}</b></div>
+        ${n >= 3 ? `<div class="hint">Max ${maxImp} Spy + Mr. White for ${n} players.</div>` : `<div class="hint">Need at least 3 players to start.</div>`}
+      </div>
+      <div class="card">
+        <div class="label">Words</div>
+        <div class="seg">
+          <button data-act="lang" data-v="en" class="${st.settings.lang === `en` ? `on` : ``}">English</button>
+          <button data-act="lang" data-v="id" class="${st.settings.lang === `id` ? `on` : ``}">Bahasa Indonesia</button>
+        </div>
+      </div>
+      ${ui.hostError ? `<div class="err">${esc(ui.hostError)}</div>` : ``}
+      <button class="btn" data-act="start">Start game</button>
+      <div class="center"><button class="linkbtn" data-act="rules">How to play</button></div>`;
+    } else {
+      html += `<div class="card">
+        <div class="label">Settings</div>
+        <div class="row"><span class="tag spy">Spy</span><span class="grow"></span><b>${st.settings.spies}</b></div>
+        <div class="row"><span class="tag white">Mr. White</span><span class="grow"></span><b>${st.settings.whites}</b></div>
+        <div class="row"><span class="tag civ">Civilians</span><span class="grow"></span><b>${civs}</b></div>
+        <div class="row"><span class="grow"></span><span class="hint" style="margin:0">Words: ${langName(st.settings.lang)}</span></div>
+      </div>
+      <div class="wait"><span class="spin"></span> Waiting for host to start</div>
+      <div class="center"><button class="linkbtn" data-act="rules">How to play</button></div>
+      <div class="center"><button class="linkbtn" data-act="leave">Leave room</button></div>`;
+    }
+    return html;
+  }
+
+  function viewReveal(st) {
+    const me = myPlayer(st);
+    if (!me) return viewWaiting(st);
+    const alive = aliveOf(st);
+    const readyCount = alive.filter(p => p.ready).length;
+    const priv = privateForMe(st);
+    let html = `${topbar()}
+      <div class="label">Round 1 of play</div>`;
+
+    if (!priv) {
+      html += `<div class="card"><div class="wait"><span class="spin"></span> Dealing your secret word</div>
+        <div class="hint">If this takes long, check your connection.</div></div>`;
+    } else if (!ui.showWord) {
+      html += `<div class="big">
+        <div class="emoji">🤫</div>
+        <p class="sub" style="margin-top:18px">Keep this screen to yourself.</p>
+        <div class="who" style="font-size:26px">Your secret word is ready</div>
+        <button class="btn" data-act="showWord">Tap to see your secret word</button>
+      </div>`;
+    } else {
+      const isWhite = priv.role === `white`;
+      html += `<div class="reveal-box">
+        ${isWhite
+          ? `<div class="emoji">🎩</div><div class="word">You are Mr. White</div>
+             <p class="sub" style="margin:0">You have no word. Blend in, then guess the civilians word if you are caught.</p>`
+          : `<p class="sub" style="margin:0">Your secret word</p><div class="word">${esc(priv.word)}</div>
+             <p class="sub" style="margin:0">Do not say it out loud. Someone may have a different word.</p>`}
+      </div>`;
+      if (me.ready) {
+        html += `<div class="ok" style="text-align:center">Ready. Waiting for the others.</div>`;
+      } else {
+        html += `<button class="btn" data-act="ready">I have seen it</button>`;
+      }
+    }
+    const pills = alive.map(p => {
+      const cls = p.ready ? `pill done` : `pill`;
+      const mark = p.ready ? `✓ ` : ``;
+      return `<span class="${cls}">${mark}${esc(p.name)}${p.pid === pid ? ` (you)` : ``}</span>`;
+    }).join(``);
+    html += `<div class="card">
+      <div class="label">Ready ${readyCount} / ${alive.length}</div>
+      <div class="pillrow">${pills}</div>
+    </div>`;
+    return html;
+  }
+
+  function clueLog(st, round, open) {
+    const clues = st.clues.filter(c => c.round === round);
+    if (!clues.length) return `<div class="hint">No clues yet.</div>`;
+    return clues.map(c => {
+      const said = c.text ? `<span class="txt">${esc(c.text)}</span>` : `<span class="said">Said it out loud</span>`;
+      return `<div class="clue"><b>${esc(nameOf(st, c.pid))}</b> ${said}</div>`;
+    }).join(``);
+  }
+
+  function myWordCard(st) {
+    const priv = privateForMe(st);
+    if (!priv) return ``;
+    const body = priv.role === `white`
+      ? `You are Mr. White. You have no word.`
+      : `Your word: <b>${esc(priv.word)}</b>`;
+    return `<details><summary>Forgot your word?</summary><div class="card"><div class="small">${body}</div></div></details>`;
+  }
+
+  function viewClue(st) {
+    const me = myPlayer(st);
+    const speakerId = st.order[st.turn];
+    const speaker = speakerId ? nameOf(st, speakerId) : `?`;
+    const myTurn = speakerId === pid && !!me && me.alive;
+    const orderItems = st.order.map((id, k) => {
+      const p = playerOf(st, id);
+      const done = k < st.turn;
+      const cur = k === st.turn;
+      return `<li class="${cur ? `cur` : ``}">
+        <span class="num">${k + 1}</span>
+        <span class="${done ? `done` : ``}">${esc(nameOf(st, id))}${id === pid ? ` (you)` : ``}${p && !p.alive ? ` (out)` : ``}</span>
+        ${done ? `<span class="tick">✓</span>` : ``}
+      </li>`;
+    }).join(``);
+
+    let html = `${topbar()}
+      <div class="label">Round ${st.round}</div>
+      <div class="banner">
+        <div class="tiny">${myTurn ? `Your turn` : `Now speaking`}</div>
+        <div class="turn">${myTurn ? `Your turn!` : esc(speaker)}</div>
+        <div class="hint" style="margin-top:8px">${myTurn ? `Give one short clue about your word.` : `Listen for a clue about their word.`}</div>
+      </div>`;
+
+    if (myTurn) {
+      html += `<form data-form="clue">
+        <input id="clueIn" type="text" value="${esc(ui.clueText)}" placeholder="Your clue" maxlength="40" autocomplete="off" autocapitalize="sentences" enterkeyhint="send">
+        <button class="btn" type="submit">Send clue</button>
+        <button class="btn ghost" type="button" data-act="emptyClue">I said it out loud</button>
+      </form>`;
+    } else if (me && me.alive) {
+      html += `<div class="wait"><span class="spin"></span> Waiting for ${esc(speaker)} to give a clue</div>`;
+    } else {
+      html += `<div class="card"><div class="label">Out</div><p class="sub" style="margin:0">You are out, watching. No clues from you until the next game.</p></div>`;
+    }
+
+    html += `<div class="card"><div class="label">Speaking order</div><ul class="list order">${orderItems}</ul></div>`;
+    html += `<div class="card"><div class="label">Clues this round</div>${clueLog(st, st.round)}</div>`;
+    if (me && me.alive) html += myWordCard(st);
+    const earlier = [];
+    for (let r = 1; r < st.round; r++) {
+      if (st.clues.some(c => c.round === r)) earlier.push(r);
+    }
+    if (earlier.length) {
+      html += `<details><summary>Earlier rounds</summary>${earlier.map(r =>
+        `<div class="card"><div class="label">Round ${r}</div>${clueLog(st, r)}</div>`).join(``)}</details>`;
+    }
+    if (host) {
+      html += `<button class="btn ghost" data-act="skip">Skip ${esc(speaker)}</button>`;
+    }
+    return html;
+  }
+
+  function viewVote(st) {
+    const me = myPlayer(st);
+    const alive = aliveOf(st);
+    const voted = alive.filter(p => st.votes[p.pid] != null);
+    const allowed = st.tieCandidates ? st.tieCandidates.slice() : aliveIds(st);
+    const candidates = allowed.filter(id => id !== pid)
+      .map(id => playerOf(st, id)).filter(p => p && p.alive);
+
+    let html = `${topbar()}
+      <div class="label">Round ${st.round}</div>`;
+
+    if (st.tieCandidates) {
+      const names = st.tieCandidates.map(id => esc(nameOf(st, id))).join(`, `);
+      html += `<div class="banner">
+        <div class="tiny">Revote</div>
+        <div class="turn" style="font-size:22px">Tie between</div>
+        <div style="font-size:20px;font-weight:700;margin-top:6px">${names}</div>
+        <div class="hint" style="margin-top:8px">Choose only one of the tied players.</div>
+      </div>`;
+    } else {
+      html += `<h2 style="margin-top:14px">Who gets voted out?</h2>`;
+    }
+
+    if (me && me.alive) {
+      const buttons = candidates.map(p => {
+        const cls = ui.voteSel === p.pid ? `sel` : ``;
+        return `<button data-act="sel" data-id="${esc(p.pid)}" class="${cls}">${esc(p.name)}${p.pid === st.hostPid ? ` ♛` : ``}</button>`;
+      }).join(``);
+      html += `<div class="vote">${buttons}</div>
+        <button class="btn danger" data-act="sendVote" ${ui.voteSel == null ? `disabled` : ``}>
+          ${ui.voteSel == null ? `Select a player` : `Vote for ${esc(nameOf(st, ui.voteSel))}`}
+        </button>
+        <div class="hint" style="text-align:center">You can change your vote until the tally.</div>`;
+    } else {
+      html += `<div class="card"><div class="label">Out</div><p class="sub" style="margin:0">You are out, watching. The living players decide.</p></div>`;
+    }
+
+    const votePills = alive.map(p => {
+      const done = st.votes[p.pid] != null;
+      const cls = done ? `pill done` : `pill`;
+      return `<span class="${cls}">${done ? `✓ ` : ``}${esc(p.name)}${p.pid === pid ? ` (you)` : ``}</span>`;
+    }).join(``);
+    html += `<div class="card">
+      <div class="label">Voted ${voted.length} / ${alive.length}</div>
+      <div class="pillrow">${votePills}</div>
+    </div>`;
+    if (me && me.alive) html += myWordCard(st);
+
+    if (host) {
+      html += `<button class="btn ghost" data-act="endVote" ${voted.length === 0 ? `disabled` : ``}>End vote now</button>`;
+    }
+    return html;
+  }
+
+  function voteBreakdown(st) {
+    const keys = Object.keys(st.votes || {});
+    if (!keys.length) return ``;
+    const rows = keys.map(v =>
+      `<div class="clue"><b>${esc(nameOf(st, v))}</b> voted for <span class="txt">${esc(nameOf(st, st.votes[v]))}</span></div>`
+    ).join(``);
+    return `<div class="card"><div class="label">Votes</div>${rows}</div>`;
+  }
+
+  function viewResult(st) {
+    const tie = st.resultKind === `tie`;
+    let html = `${topbar()}`;
+    if (tie) {
+      const names = (st.tieCandidates || []).map(id => esc(nameOf(st, id))).join(`, `);
+      html += `<div class="big">
+        <div class="emoji">🤝</div>
+        <div class="who" style="font-size:28px">Tie, nobody is out</div>
+        <p class="sub">${names} stayed tied. Nobody is eliminated this round.</p>
+      </div>`;
+    } else if (st.last) {
+      const p = playerOf(st, st.last.pid);
+      const role = st.last.role;
+      const emoji = role === `civ` ? `😇` : role === `spy` ? `🕵️` : `🎩`;
+      html += `<div class="big">
+        <div class="emoji">${emoji}</div>
+        <div class="who">${esc(p ? p.name : `?`)}</div>
+        ${roleTag(role)}
+        ${role === `white` && st.whiteGuess && !st.whiteGuess.correct
+          ? `<p class="sub" style="margin-top:16px">Guessed ${esc(st.whiteGuess.text)}. Wrong!</p>` : ``}
+      </div>`;
+    }
+    html += voteBreakdown(st);
+    if (host) {
+      html += `<button class="btn" data-act="nextRound">Next round</button>`;
+    } else {
+      html += `<div class="wait"><span class="spin"></span> Waiting for the host to continue</div>`;
+    }
+    return html;
+  }
+
+  function viewWhiteGuess(st) {
+    const p = st.last ? playerOf(st, st.last.pid) : null;
+    const mine = st.last && st.last.pid === pid;
+    if (mine) {
+      return `${topbar()}
+        <div class="banner">
+          <div class="tiny">Caught</div>
+          <div class="turn">You are Mr. White</div>
+          <div class="hint" style="margin-top:8px">Guess the civilians word. Get it right and you win.</div>
+        </div>
+        <form data-form="guess">
+          <input id="guessIn" type="text" value="${esc(ui.guessText)}" placeholder="Your guess" maxlength="40" autocomplete="off" autocapitalize="off" enterkeyhint="go">
+          <button class="btn" type="submit">Submit guess</button>
+        </form>`;
+    }
+    return `${topbar()}
+      <div class="big">
+        <div class="emoji">🎩</div>
+        <div class="who" style="font-size:28px">${esc(p ? p.name : `Mr. White`)} is guessing...</div>
+        <p class="sub">Last chance to guess the civilians word.</p>
+        <div class="wait" style="justify-content:center"><span class="spin"></span> Waiting for the guess</div>
+      </div>`;
+  }
+
+  function viewEnd(st) {
+    const w = st.winner;
+    const whiteName = st.last ? nameOf(st, st.last.pid) : `Mr. White`;
+    const title = w === `civ` ? `Civilians win! 😇`
+      : w === `white` ? `${esc(whiteName)} wins as Mr. White! 🎩`
+      : `Impostors win! 🕵️`;
+    const reveal = st.reveal || {};
+    const scoreRows = st.players.map(p => {
+      const role = reveal.roles ? reveal.roles[p.pid] : null;
+      return `<li>
+        <span class="${p.alive ? `` : `dead`}">${esc(p.name)}${p.pid === pid ? ` (you)` : ``}</span>
+        <span style="margin-left:auto">${role ? roleTag(role) : ``}</span>
+        <span class="score" style="min-width:34px;text-align:right;margin-left:10px">${p.score || 0}</span>
+      </li>`;
+    }).join(``);
+    let html = `${topbar()}
+      <div class="center" style="padding:16px 0 8px">
+        <h1>${title}</h1>
+        ${w === `white` ? `<p class="sub">Guessed the civilians word correctly.</p>` : ``}
+      </div>
+      <div class="card">
+        <div class="row"><span class="tag civ">Civilians</span><span class="grow"></span><b>${esc(reveal.civWord || ``)}</b></div>
+        <div class="row"><span class="tag spy">Spies</span><span class="grow"></span><b>${esc(reveal.spyWord || ``)}</b></div>
+      </div>
+      <div class="card"><div class="label">Roles and scores</div><ul class="list">${scoreRows}</ul></div>
+      ${voteBreakdown(st)}
+      ${st.waiting && st.waiting.length ? `<div class="hint">Waiting for next game: ${st.waiting.map(p => esc(p.name)).join(`, `)}</div>` : ``}`;
+
+    if (host) {
+      html += `<button class="btn" data-act="again">Play again</button>
+        <button class="btn ghost" data-act="toLobby">Back to lobby</button>`;
+    } else {
+      const waiting = (st.waiting || []).some(p => p.pid === pid);
+      html += `<div class="wait"><span class="spin"></span> ${waiting ? `You will join the next game` : `Waiting for the host to start the next game`}</div>`;
+    }
+    return html;
+  }
+
+  function viewRules() {
+    return `<div class="topbar"><span class="left">🕵️ Spy &amp; Mr. White Online</span><button class="linkbtn" data-act="closeRules">Close</button></div>
+      <h2>How to play</h2>
+      <div class="card rules">
+        <p><b>Setup.</b> Everyone plays on their own phone in the same room. Most players are <span class="tag civ">Civilians</span> and share one secret word.
+        <span class="tag spy">Spies</span> get a similar but different word and are not told they are spies. <span class="tag white">Mr. White</span> gets no word and knows it.</p>
+        <p><b>Your phone.</b> Your word is private. Tap to reveal it, then tap that you have seen it. The game starts when everyone is ready.</p>
+        <p><b>Clues.</b> The app shows whose turn it is. In that order, each player types or says one short clue about their word. Keep it vague enough to hide from impostors, but clear enough to show you are a civilian.</p>
+        <p><b>Vote.</b> Everyone still in the game votes on their own phone. Most votes sends one player out and reveals their role. A tie means a revote among the tied players. A second tie means nobody is out and the next round starts. Mr. White gets one guess at the civilian word when voted out.</p>
+        <p><b>Winning.</b> Civilians win when every Spy and Mr. White is out. Impostors win if only one civilian is left.</p>
+        <p><b>Points.</b> Winning civilians +2, spies +10, Mr. White +6. A correct Mr. White guess gives that player +6. Scores stay in the room across games.</p>
+      </div>
+      <button class="btn" data-act="closeRules">Got it</button>`;
+  }
+
+  // ---------- render ----------
+  function screenFor(st) {
+    if (ui.showRules) return { key: `rules`, html: viewRules() };
+    if (!room) return { key: `home`, html: viewHome() };
+    if (!st) return { key: roomMissing ? `notfound` : `connecting`, html: viewConnecting() };
+    if (ui.removed || (st.kicked && st.kicked.includes(pid))) {
+      return { key: `removed`, html: viewRemoved() };
+    }
+    const me = playerOf(st, pid);
+    const waitingIn = (st.waiting || []).some(p => p.pid === pid);
+    if (waitingIn && st.phase !== `end` && st.phase !== `lobby`) {
+      return { key: `waiting:${st.gameId}`, html: viewWaiting(st) };
+    }
+    if (!me && !waitingIn && st.phase === `lobby`) {
+      return { key: `joining`, html: viewConnecting() };
+    }
+    if (st.phase === `lobby`) return { key: `lobby:${st.players.length}`, html: viewLobby(st) };
+    if (st.phase === `reveal`) return { key: `reveal:${st.gameId}`, html: viewReveal(st) };
+    if (st.phase === `clue`) return { key: `clue:${st.gameId}:${st.round}:${st.turn}`, html: viewClue(st) };
+    if (st.phase === `vote`) return { key: `vote:${st.gameId}:${st.round}:${(st.tieCandidates || []).join(`,`) || `main`}`, html: viewVote(st) };
+    if (st.phase === `whiteGuess`) return { key: `guess:${st.gameId}`, html: viewWhiteGuess(st) };
+    if (st.phase === `result`) return { key: `result:${st.gameId}:${st.round}:${st.resultKind}`, html: viewResult(st) };
+    if (st.phase === `end`) return { key: `end:${st.gameId}:${st.winner}`, html: viewEnd(st) };
+    return { key: `lobby:${st.players.length}`, html: viewLobby(st) };
+  }
+
+  function render() {
+    const st = curState();
+    const screen = screenFor(st);
+    const active = document.activeElement;
+    const activeId = active && active.id && app.contains(active) ? active.id : null;
+    const val = activeId ? active.value : null;
+    let selStart = null, selEnd = null;
+    if (activeId && typeof active.selectionStart === `number`) {
+      selStart = active.selectionStart;
+      selEnd = active.selectionEnd;
+    }
+    app.innerHTML = screen.html + (ui.toast ? `<div class="toast">${esc(ui.toast)}</div>` : ``);
+    if (activeId) {
+      const el = document.getElementById(activeId);
+      if (el && el.tagName === `INPUT`) {
+        if (val != null) el.value = val;
+        try { el.focus({ preventScroll: true }); } catch { el.focus(); }
+        try { if (selStart != null) el.setSelectionRange(selStart, selEnd); } catch {}
+      }
+    }
+    if (lastScreenKey !== screen.key) {
+      lastScreenKey = screen.key;
+      window.scrollTo(0, 0);
+    }
+  }
+
+  // ---------- events ----------
+  app.addEventListener(`click`, e => {
+    const b = e.target.closest(`[data-act]`);
+    if (!b) return;
+    const act = b.dataset.act;
+    const st = curState();
+    switch (act) {
+      case `rules`: ui.showRules = true; render(); break;
+      case `closeRules`: ui.showRules = false; render(); break;
+      case `create`: startHosting(); break;
+      case `resume`: {
+        const r = localStorage.getItem(`smw.lastHost`);
+        const h = r ? loadHost(r) : null;
+        if (h) {
+          room = r;
+          host = h;
+          S = h.state;
+          updateUrl(r);
+          render();
+          connectBroker();
+        }
+        break;
+      }
+      case `share`: shareInvite(); break;
+      case `showWord`: ui.showWord = true; render(); break;
+      case `ready`: sendReady(); break;
+      case `emptyClue`: sendClue(``); break;
+      case `sel`: ui.voteSel = b.dataset.id; render(); break;
+      case `sendVote`: if (ui.voteSel) sendVote(ui.voteSel); break;
+      case `skip`: skipSpeakerHost(); break;
+      case `endVote`: forceTallyHost(); break;
+      case `nextRound`: nextRoundHost(); break;
+      case `again`: playAgainHost(); break;
+      case `toLobby`: backToLobbyHost(); break;
+      case `start`: startGameHost(); break;
+      case `role`: hostSetRole(b.dataset.kind, Number(b.dataset.d)); break;
+      case `lang`: hostSetLang(b.dataset.v); break;
+      case `kick`: hostKick(b.dataset.id); break;
+      case `leave`: leaveRoom(true); break;
+      case `backHome`: leaveRoom(false); break;
+    }
+  });
+
+  app.addEventListener(`submit`, e => {
     e.preventDefault();
     const form = e.target.dataset.form;
-    if (form === "add") {
-      const inp = app.querySelector("#nameIn");
-      const name = inp.value.trim();
-      if (!name) return;
-      if (settings.names.some(n => n.toLowerCase() === name.toLowerCase())) { ui.error = `"${name}" is already in.`; return render(); }
-      settings.names.push(name);
-      ui.error = "";
-      persist(); render();
-      app.querySelector("#nameIn").focus();
-    } else if (form === "guess") {
-      ui.guess = app.querySelector("#guessIn").value;
-      submitGuess();
+    const nameEl = document.getElementById(`nameIn`);
+    const nameVal = nameEl ? nameEl.value : ui.nameDraft;
+    if (form === `join`) {
+      const codeEl = document.getElementById(`codeIn`);
+      joinRoomNow(codeEl ? codeEl.value : ui.codeDraft, cleanName(nameVal));
+    } else if (form === `clue`) {
+      const el = document.getElementById(`clueIn`);
+      sendClue(el ? el.value : ui.clueText);
+    } else if (form === `guess`) {
+      const el = document.getElementById(`guessIn`);
+      sendGuess(el ? el.value : ui.guessText);
     }
   });
 
-  app.addEventListener("click", e => {
-    const b = e.target.closest("[data-act]");
-    if (!b) return;
-    const act = b.dataset.act, i = +b.dataset.i;
-    const clampRoles = () => {
-      const max = limits(settings.names.length).maxImp;
-      while (settings.spies + settings.whites > max && settings.spies + settings.whites > 1) {
-        if (settings.whites > 0 && settings.whites >= settings.spies) settings.whites--; else settings.spies--;
-      }
-    };
-    switch (act) {
-      case "rm": settings.names.splice(i, 1); clampRoles(); ui.error = ""; break;
-      case "spies": case "whites": {
-        const d = +b.dataset.d, max = limits(settings.names.length).maxImp;
-        const next = settings[act] + d;
-        const cap = act === "whites" ? 2 : 99;
-        if (next >= 0 && next <= cap && (d < 0 || settings.spies + settings.whites + 1 <= Math.max(max, 1))) settings[act] = next;
-        ui.error = ""; break;
-      }
-      case "lang": settings.lang = b.dataset.v; break;
-      case "resetScores": if (confirm("Reset all scores?")) settings.scores = {}; break;
-      case "start": startGame(); return;
-      case "rules": ui.showRules = true; break;
-      case "closeRules": ui.showRules = false; break;
-      case "show": ui.revealed = true; break;
-      case "hide":
-        ui.revealed = false;
-        if (game.revealIdx < game.players.length - 1) game.revealIdx++;
-        else { game.order = makeOrder(); game.screen = "discuss"; }
-        break;
-      case "toVote": game.screen = "vote"; ui.voteSel = null; break;
-      case "backDiscuss": game.screen = "discuss"; break;
-      case "sel": ui.voteSel = i; break;
-      case "eliminate": if (ui.voteSel != null) eliminate(ui.voteSel); return;
-      case "continue": afterElimination(); return;
-      case "peek": game.screen = "peek"; break;
-      case "peekOne": game.peekIdx = i; game.screen = "peekOne"; break;
-      case "again": startGame(); return;
-      case "toSetup": game = null; break;
+  app.addEventListener(`input`, e => {
+    const id = e.target.id;
+    if (id === `nameIn`) {
+      ui.nameDraft = e.target.value;
+      localStorage.setItem(NAME_KEY, e.target.value);
+    } else if (id === `codeIn`) {
+      const c = cleanCode(e.target.value);
+      if (e.target.value !== c) e.target.value = c;
+      ui.codeDraft = c;
+    } else if (id === `clueIn`) {
+      ui.clueText = e.target.value.slice(0, MAXCLUE);
+    } else if (id === `guessIn`) {
+      ui.guessText = e.target.value.slice(0, MAXCLUE);
     }
-    persist(); render();
   });
 
-  render();
+  app.addEventListener(`keydown`, e => {
+    if (e.key === `Enter` && e.target.id === `nameIn` && !room) {
+      e.preventDefault();
+      const name = cleanName(e.target.value);
+      if (ui.codeDraft.length === 5) joinRoomNow(ui.codeDraft, name);
+      else startHosting();
+    }
+  });
+
+  boot();
 })();
 </script>
 </body>
