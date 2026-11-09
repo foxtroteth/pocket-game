@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0f1115">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Spy &amp; Mr. White</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕵️</text></svg>">
+<style>
+  :root {
+    --bg: #0f1115; --card: #1a1d24; --line: #2a2f3a; --text: #f1f1f1; --muted: #9aa3b2;
+    --civ: #3ec28f; --spy: #e5484d; --white: #f5f5f5; --accent: #f5b83d;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  body { min-height: 100dvh; display: flex; justify-content: center;
+    padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom); }
+  #app { width: 100%; max-width: 480px; padding: 20px 18px 40px; }
+  h1 { font-size: 28px; margin: 8px 0 4px; letter-spacing: -.5px; }
+  h2 { font-size: 22px; margin: 0 0 12px; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 15px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; margin-bottom: 14px; }
+  .label { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 10px; }
+  button { font: inherit; color: inherit; border: 0; cursor: pointer; }
+  .btn { display: block; width: 100%; padding: 16px; border-radius: 14px; font-size: 17px; font-weight: 600;
+    background: var(--accent); color: #1a1300; margin-top: 10px; }
+  .btn.ghost { background: transparent; border: 1px solid var(--line); color: var(--text); }
+  .btn.danger { background: var(--spy); color: #fff; }
+  .btn:disabled { opacity: .35; }
+  .btn:active { transform: scale(.98); }
+  .row { display: flex; align-items: center; gap: 10px; }
+  .row + .row { margin-top: 10px; }
+  .grow { flex: 1; }
+  input[type=text] { width: 100%; font: inherit; font-size: 16px; padding: 13px 14px; border-radius: 12px;
+    border: 1px solid var(--line); background: #111318; color: var(--text); outline: none; }
+  input[type=text]:focus { border-color: var(--accent); }
+  .add { padding: 13px 16px; border-radius: 12px; background: var(--line); font-weight: 700; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .chip { background: #111318; border: 1px solid var(--line); border-radius: 999px; padding: 8px 8px 8px 14px;
+    display: flex; align-items: center; gap: 6px; font-size: 15px; }
+  .chip button { background: var(--line); width: 24px; height: 24px; border-radius: 50%; font-size: 13px; line-height: 24px; }
+  .stepper { display: flex; align-items: center; gap: 4px; }
+  .stepper button { width: 40px; height: 40px; border-radius: 10px; background: var(--line); font-size: 20px; font-weight: 700; }
+  .stepper span { width: 34px; text-align: center; font-size: 20px; font-weight: 700; }
+  .seg { display: flex; background: #111318; border: 1px solid var(--line); border-radius: 12px; padding: 3px; }
+  .seg button { flex: 1; padding: 10px; border-radius: 9px; background: transparent; color: var(--muted); font-weight: 600; }
+  .seg button.on { background: var(--line); color: var(--text); }
+  .hint { color: var(--muted); font-size: 13px; margin-top: 8px; }
+  .err { color: var(--spy); font-size: 14px; margin-top: 8px; }
+  .big { text-align: center; padding: 40px 16px; }
+  .big .who { font-size: 34px; font-weight: 800; margin: 8px 0 24px; word-break: break-word; }
+  .reveal-box { border-radius: 20px; padding: 40px 16px; text-align: center; background: #111318;
+    border: 2px dashed var(--line); margin: 10px 0; }
+  .word { font-size: 40px; font-weight: 800; margin: 10px 0; word-break: break-word; }
+  .tag { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .8px; }
+  .tag.civ { background: rgba(62,194,143,.15); color: var(--civ); }
+  .tag.spy { background: rgba(229,72,77,.15); color: var(--spy); }
+  .tag.white { background: rgba(245,245,245,.12); color: var(--white); }
+  .list { list-style: none; padding: 0; margin: 0; }
+  .list li { display: flex; align-items: center; gap: 12px; padding: 12px 4px; border-bottom: 1px solid var(--line); font-size: 17px; }
+  .list li:last-child { border-bottom: 0; }
+  .num { width: 28px; height: 28px; border-radius: 50%; background: var(--line); display: grid; place-items: center;
+    font-size: 14px; font-weight: 700; flex-shrink: 0; }
+  .dead { opacity: .4; text-decoration: line-through; }
+  .vote { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .vote button { padding: 18px 10px; border-radius: 14px; background: #111318; border: 1px solid var(--line);
+    font-size: 17px; font-weight: 600; word-break: break-word; }
+  .vote button.sel { border-color: var(--spy); background: rgba(229,72,77,.12); }
+  .score { margin-left: auto; color: var(--accent); font-weight: 700; }
+  .center { text-align: center; }
+  .emoji { font-size: 64px; line-height: 1; }
+  .linkbtn { background: none; color: var(--muted); text-decoration: underline; font-size: 14px; padding: 10px; }
+  .rules p { margin: 0 0 10px; line-height: 1.45; color: #d6d9de; font-size: 15px; }
+  .topbar { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script src="words.js"></script>
+<script>
+(() => {
+  // ---------- persistence ----------
+  const SETTINGS_KEY = "smw.settings.v1";
+  const GAME_KEY = "smw.game.v1";
+  const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
+  const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+
+  const settings = Object.assign(
+    { names: [], spies: 1, whites: 1, lang: "en", scores: {}, used: { en: [], id: [] } },
+    load(SETTINGS_KEY, {})
+  );
+  let game = load(GAME_KEY, null); // in-progress game survives refresh
+  let ui = { error: "", voteSel: null, guess: "", showRules: false, revealed: false };
+
+  const persist = () => { save(SETTINGS_KEY, settings); save(GAME_KEY, game); };
+
+  // ---------- helpers ----------
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const norm = s => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]/g, "");
+  const ROLE = {
+    civ: { name: "Civilian", cls: "civ" },
+    spy: { name: "Spy", cls: "spy" },
+    white: { name: "Mr. White", cls: "white" },
+  };
+  const POINTS = { civ: 2, spy: 10, white: 6 };
+
+  // Valid role counts: at least one impostor, and civilians must outnumber
+  // or equal impostors with at least 2 civilians (otherwise the game is over at once).
+  function limits(n) {
+    const maxImp = Math.max(0, Math.min(Math.floor(n / 2), n - 2));
+    return { maxImp };
+  }
+  function validate() {
+    const n = settings.names.length;
+    if (n < 3) return "Add at least 3 players.";
+    const imp = settings.spies + settings.whites;
+    if (imp < 1) return "Need at least 1 Spy or Mr. White.";
+    if (imp > limits(n).maxImp) return `Too many impostors for ${n} players (max ${limits(n).maxImp}).`;
+    return "";
+  }
+
+  function pickPair() {
+    const pairs = window.WORD_PAIRS[settings.lang];
+    let used = settings.used[settings.lang] || [];
+    if (used.length >= pairs.length) used = [];
+    const free = pairs.map((_, i) => i).filter(i => !used.includes(i));
+    const idx = free[Math.floor(Math.random() * free.length)];
+    settings.used[settings.lang] = [...used, idx];
+    return Math.random() < .5 ? pairs[idx] : [pairs[idx][1], pairs[idx][0]];
+  }
+
+  // ---------- game flow ----------
+  function startGame() {
+    const err = validate();
+    if (err) { ui.error = err; return render(); }
+    const [civWord, spyWord] = pickPair();
+    const n = settings.names.length;
+    const roles = shuffle([
+      ...Array(settings.spies).fill("spy"),
+      ...Array(settings.whites).fill("white"),
+      ...Array(n - settings.spies - settings.whites).fill("civ"),
+    ]);
+    const players = settings.names.map((name, i) => ({
+      name, role: roles[i], alive: true,
+      word: roles[i] === "civ" ? civWord : roles[i] === "spy" ? spyWord : null,
+    }));
+    game = { screen: "pass", players, civWord, spyWord, revealIdx: 0, round: 1, order: [], last: null, winner: null, whiteWin: null };
+    ui = { ...ui, error: "", revealed: false };
+    persist(); render();
+  }
+
+  // Speaking order: random start, but Mr. White never speaks first
+  // (speaking first with no word would expose them instantly).
+  function makeOrder() {
+    const alive = game.players.map((p, i) => i).filter(i => game.players[i].alive);
+    const nonWhite = alive.filter(i => game.players[i].role !== "white");
+    const first = nonWhite[Math.floor(Math.random() * nonWhite.length)];
+    const k = alive.indexOf(first);
+    return [...alive.slice(k), ...alive.slice(0, k)];
+  }
+
+  function checkWinner() {
+    const alive = game.players.filter(p => p.alive);
+    const imps = alive.filter(p => p.role !== "civ").length;
+    const civs = alive.length - imps;
+    if (imps === 0) return "civ";
+    if (civs <= 1) return "imp";
+    return null;
+  }
+
+  function finish(winner) {
+    game.winner = winner;
+    game.players.forEach(p => {
+      const won = winner === "civ" ? p.role === "civ"
+        : winner === "white" ? p.role === "white" && p === game.whiteWin
+        : p.role !== "civ";
+      if (won) settings.scores[p.name] = (settings.scores[p.name] || 0) + POINTS[p.role];
+    });
+    game.whiteWin = game.whiteWin ? game.whiteWin.name : null;
+    game.screen = "end";
+  }
+
+  function eliminate(i) {
+    const p = game.players[i];
+    p.alive = false;
+    game.last = i;
+    ui.voteSel = null;
+    game.screen = p.role === "white" ? "whiteGuess" : "eliminated";
+    ui.guess = "";
+    persist(); render();
+  }
+
+  function afterElimination() {
+    const w = checkWinner();
+    if (w) finish(w);
+    else { game.round++; game.order = makeOrder(); game.screen = "discuss"; }
+    persist(); render();
+  }
+
+  function submitGuess() {
+    const p = game.players[game.last];
+    if (norm(ui.guess) && norm(ui.guess) === norm(game.civWord)) {
+      game.whiteWin = p;
+      finish("white");
+      persist(); return render();
+    }
+    game.screen = "eliminated";
+    game.wrongGuess = ui.guess.trim() || "(no guess)";
+    persist(); render();
+  }
+
+  // ---------- views ----------
+  const views = {
+    setup() {
+      const n = settings.names.length;
+      const { maxImp } = limits(n);
+      const civs = n - settings.spies - settings.whites;
+      const scored = settings.names.some(nm => settings.scores[nm]);
+      return `
+        <h1>🕵️ Spy &amp; Mr. White</h1>
+        <p class="sub">Pass-and-play word bluffing game. One phone, everyone around it.</p>
+
+        <div class="card">
+          <div class="label">Players (${n})</div>
+          <form class="row" data-form="add">
+            <input class="grow" type="text" id="nameIn" placeholder="Player name" maxlength="16" autocomplete="off" enterkeyhint="done">
+            <button class="add" type="submit">Add</button>
+          </form>
+          <div class="chips">
+            ${settings.names.map((nm, i) => `<span class="chip">${esc(nm)}<button data-act="rm" data-i="${i}" aria-label="Remove">✕</button></span>`).join("")}
+          </div>
+          ${n === 0 ? `<div class="hint">Add everyone in the order you sit.</div>` : ""}
+        </div>
+
+        <div class="card">
+          <div class="label">Roles</div>
+          <div class="row"><span class="tag spy">Spy</span><span class="grow"></span>
+            <div class="stepper"><button data-act="spies" data-d="-1">−</button><span>${settings.spies}</span><button data-act="spies" data-d="1">+</button></div></div>
+          <div class="row"><span class="tag white">Mr. White</span><span class="grow"></span>
+            <div class="stepper"><button data-act="whites" data-d="-1">−</button><span>${settings.whites}</span><button data-act="whites" data-d="1">+</button></div></div>
+          <div class="row"><span class="tag civ">Civilians</span><span class="grow"></span><span style="font-size:20px;font-weight:700;width:34px;text-align:center;margin-right:44px">${Math.max(0, civs)}</span></div>
+          ${n >= 3 ? `<div class="hint">Max ${maxImp} Spy + Mr. White for ${n} players.</div>` : ""}
+        </div>
+
+        <div class="card">
+          <div class="label">Words</div>
+          <div class="seg">
+            <button data-act="lang" data-v="en" class="${settings.lang === "en" ? "on" : ""}">English</button>
+            <button data-act="lang" data-v="id" class="${settings.lang === "id" ? "on" : ""}">Bahasa Indonesia</button>
+          </div>
+        </div>
+
+        ${scored ? `<div class="card"><div class="label">Scoreboard</div><ul class="list">
+          ${settings.names.slice().sort((a, b) => (settings.scores[b] || 0) - (settings.scores[a] || 0))
+            .map(nm => `<li>${esc(nm)}<span class="score">${settings.scores[nm] || 0}</span></li>`).join("")}
+          </ul><button class="linkbtn" data-act="resetScores">Reset scores</button></div>` : ""}
+
+        ${ui.error ? `<div class="err">${esc(ui.error)}</div>` : ""}
+        <button class="btn" data-act="start">Start game</button>
+        <div class="center"><button class="linkbtn" data-act="rules">How to play</button></div>
+      `;
+    },
+
+    pass() {
+      const p = game.players[game.revealIdx];
+      if (!ui.revealed) return `
+        <div class="topbar"><span>Secret words</span><span>${game.revealIdx + 1} / ${game.players.length}</span></div>
+        <div class="big">
+          <div class="emoji">📱</div>
+          <p class="sub" style="margin-top:20px">Pass the phone to</p>
+          <div class="who">${esc(p.name)}</div>
+          <button class="btn" data-act="show">I'm ${esc(p.name)}, show my word</button>
+        </div>`;
+      const isWhite = p.role === "white";
+      const last = game.revealIdx === game.players.length - 1;
+      return `
+        <div class="topbar"><span>${esc(p.name)}</span><span>${game.revealIdx + 1} / ${game.players.length}</span></div>
+        <div class="reveal-box">
+          ${isWhite
+            ? `<div class="emoji">🎩</div><div class="word">You are Mr. White</div>
+               <p class="sub">You have no word. Listen to the others, blend in, and try to guess their word.</p>`
+            : `<p class="sub" style="margin:0">Your secret word</p><div class="word">${esc(p.word)}</div>
+               <p class="sub">Don't say it out loud. Someone may have a different word.</p>`}
+        </div>
+        <button class="btn" data-act="hide">${last ? "Hide & start round" : "Hide & pass on"}</button>`;
+    },
+
+    discuss() {
+      return `
+        <div class="topbar"><span>Round ${game.round}</span><span>${game.players.filter(p => p.alive).length} alive</span></div>
+        <h2 style="margin-top:14px">Give one clue each</h2>
+        <p class="sub">Describe your word in a single word or short phrase, in this order:</p>
+        <div class="card"><ul class="list">
+          ${game.order.map((i, k) => `<li><span class="num">${k + 1}</span>${esc(game.players[i].name)}</li>`).join("")}
+        </ul></div>
+        ${game.players.some(p => !p.alive) ? `<div class="card"><div class="label">Out</div><ul class="list">
+          ${game.players.filter(p => !p.alive).map(p => `<li class="dead">${esc(p.name)}</li>`).join("")}</ul></div>` : ""}
+        <button class="btn" data-act="toVote">Everyone spoke, vote!</button>
+        <div class="center"><button class="linkbtn" data-act="peek">Forgot your word?</button></div>`;
+    },
+
+    vote() {
+      const alive = game.players.map((p, i) => ({ p, i })).filter(x => x.p.alive);
+      return `
+        <div class="topbar"><span>Round ${game.round}</span><span>Vote</span></div>
+        <h2 style="margin-top:14px">Who gets voted out?</h2>
+        <p class="sub">Discuss, vote by pointing, then tap the player with the most votes.</p>
+        <div class="vote">
+          ${alive.map(x => `<button data-act="sel" data-i="${x.i}" class="${ui.voteSel === x.i ? "sel" : ""}">${esc(x.p.name)}</button>`).join("")}
+        </div>
+        <button class="btn danger" data-act="eliminate" ${ui.voteSel == null ? "disabled" : ""}>
+          ${ui.voteSel == null ? "Select a player" : `Eliminate ${esc(game.players[ui.voteSel].name)}`}</button>
+        <button class="btn ghost" data-act="backDiscuss">Back</button>`;
+    },
+
+    whiteGuess() {
+      const p = game.players[game.last];
+      return `
+        <div class="big" style="padding-bottom:10px">
+          <div class="emoji">🎩</div>
+          <div class="who" style="margin-bottom:6px">${esc(p.name)} was Mr. White!</div>
+          <p class="sub">Last chance: guess the civilians' word. Get it right and Mr. White wins.</p>
+        </div>
+        <form data-form="guess">
+          <input type="text" id="guessIn" placeholder="Your guess" autocomplete="off" autocapitalize="off" enterkeyhint="go">
+          <button class="btn" type="submit">Submit guess</button>
+        </form>`;
+    },
+
+    eliminated() {
+      const p = game.players[game.last];
+      const r = ROLE[p.role];
+      return `
+        <div class="big">
+          <div class="emoji">${p.role === "civ" ? "😇" : p.role === "spy" ? "🕵️" : "🎩"}</div>
+          <div class="who" style="margin-bottom:10px">${esc(p.name)}</div>
+          <span class="tag ${r.cls}">${r.name}</span>
+          ${p.role === "white" ? `<p class="sub" style="margin-top:16px">Guessed "${esc(game.wrongGuess || "")}". Wrong!</p>` : ""}
+        </div>
+        <button class="btn" data-act="continue">Continue</button>`;
+    },
+
+    end() {
+      const w = game.winner;
+      const title = w === "civ" ? "Civilians win! 😇" : w === "white" ? `${esc(game.whiteWin)} (Mr. White) wins! 🎩` : "Impostors win! 🕵️";
+      return `
+        <div class="center" style="padding:20px 0 10px">
+          <h1>${title}</h1>
+          ${w === "white" ? `<p class="sub">Guessed the word correctly.</p>` : ""}
+        </div>
+        <div class="card">
+          <div class="row"><span class="tag civ">Civilians</span><span class="grow"></span><b>${esc(game.civWord)}</b></div>
+          <div class="row"><span class="tag spy">Spies</span><span class="grow"></span><b>${esc(game.spyWord)}</b></div>
+        </div>
+        <div class="card"><ul class="list">
+          ${game.players.map(p => `<li><span class="${p.alive ? "" : "dead"}">${esc(p.name)}</span>
+            <span class="tag ${ROLE[p.role].cls}" style="margin-left:auto">${ROLE[p.role].name}</span>
+            <span class="score" style="margin-left:10px;min-width:30px;text-align:right">${settings.scores[p.name] || 0}</span></li>`).join("")}
+        </ul></div>
+        <button class="btn" data-act="again">Play again</button>
+        <button class="btn ghost" data-act="toSetup">Change players / settings</button>`;
+    },
+
+    peek() {
+      return `
+        <h2>Forgot your word?</h2>
+        <p class="sub">Tap your name, look privately, then hide it.</p>
+        <div class="vote">
+          ${game.players.map((p, i) => p.alive ? `<button data-act="peekOne" data-i="${i}">${esc(p.name)}</button>` : "").join("")}
+        </div>
+        <button class="btn ghost" data-act="backDiscuss">Back</button>`;
+    },
+
+    peekOne() {
+      const p = game.players[game.peekIdx];
+      return `
+        <div class="topbar"><span>${esc(p.name)}</span><span></span></div>
+        <div class="reveal-box">
+          ${p.role === "white" ? `<div class="emoji">🎩</div><div class="word">You are Mr. White</div>`
+            : `<p class="sub" style="margin:0">Your secret word</p><div class="word">${esc(p.word)}</div>`}
+        </div>
+        <button class="btn" data-act="backDiscuss">Hide</button>`;
+    },
+
+    rules() {
+      return `
+        <h2>How to play</h2>
+        <div class="card rules">
+          <p><b>Setup.</b> Everyone gets a secret word, passed around on one phone. Most players are <span class="tag civ">Civilians</span> and share the same word.
+          <span class="tag spy">Spies</span> get a <i>similar but different</i> word, and don't know they're the spy. <span class="tag white">Mr. White</span> gets no word at all and knows it.</p>
+          <p><b>Clues.</b> Each round, in the order shown, every player says one clue about their word. Be vague enough not to help the impostors, but clear enough to prove you're a civilian.</p>
+          <p><b>Vote.</b> Discuss, then vote out one player. Their role is revealed. If Mr. White is voted out, they get one guess at the civilians' word: correct means Mr. White wins instantly.</p>
+          <p><b>Winning.</b> Civilians win when every Spy and Mr. White is out. Impostors win if only one civilian is left.</p>
+          <p><b>Points.</b> Winning civilians +2, spies +10, Mr. White +6.</p>
+        </div>
+        <button class="btn" data-act="closeRules">Got it</button>`;
+    },
+  };
+
+  // ---------- render & events ----------
+  const app = document.getElementById("app");
+  function render() {
+    const screen = ui.showRules ? "rules" : game ? game.screen : "setup";
+    app.innerHTML = views[screen]();
+    window.scrollTo(0, 0);
+    const f = app.querySelector("#nameIn, #guessIn");
+    if (f && screen === "whiteGuess") f.focus();
+  }
+
+  app.addEventListener("submit", e => {
+    e.preventDefault();
+    const form = e.target.dataset.form;
+    if (form === "add") {
+      const inp = app.querySelector("#nameIn");
+      const name = inp.value.trim();
+      if (!name) return;
+      if (settings.names.some(n => n.toLowerCase() === name.toLowerCase())) { ui.error = `"${name}" is already in.`; return render(); }
+      settings.names.push(name);
+      ui.error = "";
+      persist(); render();
+      app.querySelector("#nameIn").focus();
+    } else if (form === "guess") {
+      ui.guess = app.querySelector("#guessIn").value;
+      submitGuess();
+    }
+  });
+
+  app.addEventListener("click", e => {
+    const b = e.target.closest("[data-act]");
+    if (!b) return;
+    const act = b.dataset.act, i = +b.dataset.i;
+    const clampRoles = () => {
+      const max = limits(settings.names.length).maxImp;
+      while (settings.spies + settings.whites > max && settings.spies + settings.whites > 1) {
+        if (settings.whites > 0 && settings.whites >= settings.spies) settings.whites--; else settings.spies--;
+      }
+    };
+    switch (act) {
+      case "rm": settings.names.splice(i, 1); clampRoles(); ui.error = ""; break;
+      case "spies": case "whites": {
+        const d = +b.dataset.d, max = limits(settings.names.length).maxImp;
+        const next = settings[act] + d;
+        const cap = act === "whites" ? 2 : 99;
+        if (next >= 0 && next <= cap && (d < 0 || settings.spies + settings.whites + 1 <= Math.max(max, 1))) settings[act] = next;
+        ui.error = ""; break;
+      }
+      case "lang": settings.lang = b.dataset.v; break;
+      case "resetScores": if (confirm("Reset all scores?")) settings.scores = {}; break;
+      case "start": startGame(); return;
+      case "rules": ui.showRules = true; break;
+      case "closeRules": ui.showRules = false; break;
+      case "show": ui.revealed = true; break;
+      case "hide":
+        ui.revealed = false;
+        if (game.revealIdx < game.players.length - 1) game.revealIdx++;
+        else { game.order = makeOrder(); game.screen = "discuss"; }
+        break;
+      case "toVote": game.screen = "vote"; ui.voteSel = null; break;
+      case "backDiscuss": game.screen = "discuss"; break;
+      case "sel": ui.voteSel = i; break;
+      case "eliminate": if (ui.voteSel != null) eliminate(ui.voteSel); return;
+      case "continue": afterElimination(); return;
+      case "peek": game.screen = "peek"; break;
+      case "peekOne": game.peekIdx = i; game.screen = "peekOne"; break;
+      case "again": startGame(); return;
+      case "toSetup": game = null; break;
+    }
+    persist(); render();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
