@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connection test</title>
+<style>
+  body { background: #0f1115; color: #f1f1f1; font: 16px -apple-system, sans-serif; padding: 20px; max-width: 480px; margin: auto; }
+  li { padding: 10px 0; border-bottom: 1px solid #2a2f3a; list-style: none; }
+  ul { padding: 0; }
+  .ok { color: #3ec28f; } .bad { color: #e5484d; } .wait { color: #9aa3b2; }
+</style>
+</head>
+<body>
+<h2>Connection test</h2>
+<p>Wait about 15 seconds, then screenshot this page.</p>
+<ul id="out"></ul>
+<script>
+const out = document.getElementById("out");
+function row(name) { const li = document.createElement("li"); li.innerHTML = `<b>${name}</b>: <span class="wait">testing...</span>`; out.appendChild(li); return (ok, msg) => { li.querySelector("span").className = ok ? "ok" : "bad"; li.querySelector("span").textContent = (ok ? "OK " : "FAIL ") + msg; }; }
+function ws(name, url, proto) {
+  const done = row(name), t0 = Date.now();
+  let s; try { s = new WebSocket(url, proto); } catch (e) { return done(false, e.message); }
+  const to = setTimeout(() => { done(false, "timeout"); try { s.close(); } catch {} }, 12000);
+  s.onopen = () => { clearTimeout(to); done(true, (Date.now() - t0) + " ms"); s.close(); };
+  s.onerror = () => { clearTimeout(to); done(false, "error after " + (Date.now() - t0) + " ms"); };
+}
+function http(name, url) {
+  const done = row(name), t0 = Date.now();
+  const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 12000);
+  fetch(url, { signal: ctl.signal, mode: "cors" }).then(r => { clearTimeout(to); done(r.ok, "HTTP " + r.status + ", " + (Date.now() - t0) + " ms"); })
+    .catch(e => { clearTimeout(to); done(false, e.name === "AbortError" ? "timeout" : e.message); });
+}
+row("Browser")(true, navigator.userAgent.replace(/^Mozilla\/5.0 /, "").slice(0, 90));
+http("unpkg CDN", "https://unpkg.com/mqtt@5.10.1/package.json");
+ws("shiftr 443 (mqtt)", "wss://public.cloud.shiftr.io:443", "mqtt");
+ws("emqx 8084 (mqtt)", "wss://broker.emqx.io:8084/mqtt", "mqtt");
+ws("hivemq 8884 (mqtt)", "wss://broker.hivemq.com:8884/mqtt", "mqtt");
+http("ntfy.sh https", "https://ntfy.sh/v1/health");
+ws("ntfy.sh websocket", "wss://ntfy.sh/smwdiag" + Math.random().toString(36).slice(2) + "/ws");
+http("peerjs https", "https://0.peerjs.com/peerjs/id");
+ws("piesocket demo ws", "wss://demo.piesocket.com/v3/channel_1?api_key=x");
+ws("websocket.org echo", "wss://echo.websocket.org");
+</script>
+</body>
+</html>
