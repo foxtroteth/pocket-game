@@ -997,11 +997,11 @@
   function makeOrder(st) {
     const alive = aliveIds(st);
     const roles = (host.secrets && host.secrets.roles) || {};
-    const nonWhite = alive.filter(id => roles[id] !== `white`);
-    const pool = nonWhite.length ? nonWhite : alive;
-    const first = pool[Math.floor(Math.random() * pool.length)];
-    const k = Math.max(0, alive.indexOf(first));
-    return alive.slice(k).concat(alive.slice(0, k));
+    // Fully random order every round; only rule: Mr. White never speaks first
+    // (with no word, going first would give them away).
+    let order = shuffle(alive);
+    for (let t = 0; t < 100 && roles[order[0]] === `white` && alive.some(id => roles[id] !== `white`); t++) order = shuffle(alive);
+    return order;
   }
 
   function checkWinner() {

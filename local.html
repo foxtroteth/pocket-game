@@ -154,14 +154,14 @@
     persist(); render();
   }
 
-  // Speaking order: random start, but Mr. White never speaks first
+  // Speaking order: fully random each round, but Mr. White never speaks first
   // (speaking first with no word would expose them instantly).
   function makeOrder() {
     const alive = game.players.map((p, i) => i).filter(i => game.players[i].alive);
-    const nonWhite = alive.filter(i => game.players[i].role !== "white");
-    const first = nonWhite[Math.floor(Math.random() * nonWhite.length)];
-    const k = alive.indexOf(first);
-    return [...alive.slice(k), ...alive.slice(0, k)];
+    const isWhite = i => game.players[i].role === "white";
+    let order = shuffle(alive);
+    for (let t = 0; t < 100 && isWhite(order[0]) && alive.some(i => !isWhite(i)); t++) order = shuffle(alive);
+    return order;
   }
 
   function checkWinner() {
