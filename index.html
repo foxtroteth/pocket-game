@@ -125,7 +125,7 @@
   const app = document.getElementById(`app`);
   const load = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return v === null || v === undefined ? d : v; } catch { return d; } };
   const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
-  const newId = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
+  const newId = () => Array.from(crypto.getRandomValues(new Uint8Array(12)), b => b.toString(16).padStart(2, `0`)).join(``);
   const PID_KEY = `smw.pid.v1`;
   const NAME_KEY = `smw.name.v1`;
   const pid = (() => {
@@ -159,7 +159,7 @@
   const toStr = p => typeof p === `string` ? p : new TextDecoder().decode(p);
   const cleanName = s => String(s || ``).trim().replace(/\s+/g, ` `).slice(0, MAXNAME);
   const cleanCode = s => String(s || ``).toUpperCase().replace(/[^A-Z0-9]/g, ``).slice(0, 5);
-  const makeCode = () => Array.from({ length: 5 }, () => ROOM_ALPHABET[Math.floor(Math.random() * ROOM_ALPHABET.length)]).join(``);
+  const makeCode = () => Array.from(crypto.getRandomValues(new Uint32Array(5)), n => ROOM_ALPHABET[n % ROOM_ALPHABET.length]).join(``);
 
   function limits(n) { return { maxImp: Math.max(0, Math.min(Math.floor(n / 2), n - 2)) }; }
 
@@ -190,11 +190,33 @@
     st.order = Array.isArray(st.order) ? st.order : [];
     st.clues = Array.isArray(st.clues) ? st.clues : [];
     st.votes = st.votes && typeof st.votes === `object` ? st.votes : {};
-    if (typeof st.v !== `number`) st.v = 0;
+    // State arrives over a public broker, so coerce every field that is
+    // rendered without esc() to a safe type before it reaches innerHTML.
+    const int = x => (Number.isFinite(+x) ? Math.trunc(+x) : 0);
+    const str = x => (typeof x === `string` ? x : ``);
+    const oneOf = (x, list, d) => (list.includes(x) ? x : d);
+    const ROLES = [`civ`, `spy`, `white`];
+    st.v = int(st.v);
+    st.round = int(st.round);
+    st.turn = int(st.turn);
+    st.phase = oneOf(st.phase, [`lobby`, `reveal`, `clue`, `vote`, `result`, `whiteGuess`, `end`], `lobby`);
+    st.winner = oneOf(st.winner, [`civ`, `imp`, `white`], null);
+    st.settings.spies = int(st.settings.spies);
+    st.settings.whites = int(st.settings.whites);
+    st.settings.lang = oneOf(st.settings.lang, [`en`, `id`], `en`);
+    st.order = st.order.map(str);
+    if (st.last && typeof st.last === `object`) { st.last.pid = str(st.last.pid); st.last.role = oneOf(st.last.role, ROLES, `civ`); }
+    else st.last = null;
+    if (st.reveal && typeof st.reveal === `object` && st.reveal.roles && typeof st.reveal.roles === `object`) {
+      for (const k of Object.keys(st.reveal.roles)) st.reveal.roles[k] = oneOf(st.reveal.roles[k], ROLES, `civ`);
+    }
+    if (st.tieCandidates != null) st.tieCandidates = Array.isArray(st.tieCandidates) ? st.tieCandidates.map(str) : null;
     st.players.forEach(p => {
+      p.pid = str(p.pid);
+      p.name = str(p.name);
       p.alive = p.alive !== false;
       p.ready = !!p.ready;
-      p.score = p.score || 0;
+      p.score = int(p.score);
     });
     return st;
   }
