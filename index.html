@@ -135,7 +135,14 @@
   })();
 
   const ROOM_ALPHABET = `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`;
-  const BROKERS = [`wss://broker.emqx.io:8084/mqtt`, `wss://broker.hivemq.com:8884/mqtt`];
+  // Every device connects to all of these at once. Public brokers do not talk
+  // to each other, so a host and a friend on different brokers would never see
+  // each other if we only used one. Port 443 is the one mobile networks like.
+  const BROKERS = [
+    { url: `wss://public.cloud.shiftr.io:443`, opts: { username: `public`, password: `public` } },
+    { url: `wss://broker.emqx.io:8084/mqtt`, opts: {} },
+    { url: `wss://broker.hivemq.com:8884/mqtt`, opts: {} },
+  ];
   const POINTS = { civ: 2, spy: 10, white: 6 };
   const ROLE = {
     civ: { name: `Civilian`, cls: `civ` },
@@ -231,14 +238,12 @@
   let S = null;
   let lastV = -1;
   let host = null;
-  let client = null;
+  let clients = [];
   let connected = false;
-  let brokerIdx = 0;
-  let subDone = false;
+  let noServer = false;
   let roomMissing = false;
   let missingTimer = null;
-  let connectTimer = null;
-  let switchTimer = null;
+  let noServerTimer = null;
   let pending = null;
   let lastScreenKey = ``;
   let lastTurnKey = ``;
@@ -296,83 +301,134 @@
   }
 
   // ---------- transport ----------
-  function connectBroker() {
+  // One client per broker, all connected in parallel. Every publish goes to
+  // every connected client, and every incoming message may arrive up to once
+  // per broker, so the handlers below must tolerate duplicates.
+
+  function anyConnected() { return clients.some(c => c && c.connected); }
+
+  function refreshConnected() {
+    const next = anyConnected();
+    let redraw = next !== connected;
+    connected = next;
+    if (next) {
+      if (noServer) { noServer = false; redraw = true; }
+      clearTimeout(noServerTimer);
+      noServerTimer = null;
+    }
+    if (redraw) render();
+  }
+
+  function endAll(delay) {
+    const old = clients.slice();
+    clients = [];
+    connected = false;
+    clearTimeout(noServerTimer);
+    noServerTimer = null;
+    const run = () => old.forEach(c => { try { c.end(true); } catch {} });
+    if (delay) setTimeout(run, delay);
+    else run();
+  }
+
+  function connectAll() {
     if (!room) return;
     if (!window.mqtt) {
       ui.hostError = `Network library failed to load. Refresh the page.`;
       render();
       return;
     }
-    connected = false;
-    brokerIdx = brokerIdx % BROKERS.length;
-    const c = window.mqtt.connect(BROKERS[brokerIdx], {
-      clientId: `smw_${pid}_${Math.random().toString(16).slice(2, 8)}`,
-      clean: true,
-      reconnectPeriod: 2000,
-      connectTimeout: 6000,
-      keepalive: 30,
+    endAll();
+    noServer = false;
+    clearTimeout(noServerTimer);
+    noServerTimer = setTimeout(() => {
+      noServerTimer = null;
+      if (!connected) { noServer = true; render(); }
+    }, 15000);
+    clients = BROKERS.map((b, i) => {
+      const c = window.mqtt.connect(b.url, Object.assign({
+        clientId: `smw_${pid}_${i}_${Math.random().toString(16).slice(2, 8)}`,
+        clean: true,
+        reconnectPeriod: 3000,
+        connectTimeout: 8000,
+        keepalive: 30,
+      }, b.opts || {}));
+      const live = () => clients.includes(c);
+      c.on(`connect`, () => {
+        if (!live()) return;
+        refreshConnected();
+        subscribeOn(c);
+      });
+      c.on(`reconnect`, () => { if (live()) refreshConnected(); });
+      c.on(`close`, () => { if (live()) refreshConnected(); });
+      c.on(`error`, () => {});
+      c.on(`message`, (topic, payload) => { if (live()) onMessage(topic, payload); });
+      return c;
     });
-    client = c;
-    let opened = false;
-    clearTimeout(connectTimer);
-    clearTimeout(switchTimer);
-    connectTimer = setTimeout(() => {
-      if (!opened && !connected && client === c) {
-        try { c.end(true); } catch {}
-        if (client === c) client = null;
-        brokerIdx = (brokerIdx + 1) % BROKERS.length;
-        connectBroker();
-      }
-    }, 6000);
-    c.on(`connect`, () => {
-      opened = true;
-      connected = true;
-      subDone = false;
-      clearTimeout(connectTimer);
-      clearTimeout(switchTimer);
-      render();
-      subscribeAll();
-    });
-    c.on(`reconnect`, () => { connected = false; subDone = false; render(); });
-    c.on(`close`, () => {
-      connected = false;
-      subDone = false;
-      render();
-      clearTimeout(switchTimer);
-      switchTimer = setTimeout(() => {
-        if (!connected && client === c) {
-          try { c.end(true); } catch {}
-          if (client === c) client = null;
-          brokerIdx = (brokerIdx + 1) % BROKERS.length;
-          connectBroker();
-        }
-      }, 10000);
-    });
-    c.on(`error`, () => {});
-    c.on(`message`, (topic, payload) => onMessage(topic, payload));
   }
 
-  function subscribeAll() {
-    if (!client || !client.connected) return;
+  function subscribeOn(c) {
+    if (!c || !c.connected) return;
     const done = () => {
-      subDone = true;
+      if (!c.connected) return;
       if (host) {
-        hostSync();
-      } else {
-        if (!S) {
-          clearTimeout(missingTimer);
-          missingTimer = setTimeout(() => {
-            if (!S && !host) { roomMissing = true; render(); }
-          }, 5000);
+        // A broker that came up late still needs the retained data.
+        publishStateOn(c);
+        if (host.secrets && host.secrets.priv) {
+          Object.keys(host.secrets.priv).forEach(id => publishPrivOn(c, id));
         }
-        queueJoin();
+        render();
+      } else {
+        startMissingTimer();
+        if (!pending) queueJoin();
+        render();
       }
     };
     if (host) {
-      client.subscribe([t(`act`)], { qos: 1 }, done);
+      c.subscribe([t(`act`)], { qos: 1 }, done);
     } else {
-      client.subscribe([t(`state`), t(`p/${pid}`)], { qos: 1 }, done);
+      c.subscribe([t(`state`), t(`p/${pid}`)], { qos: 1 }, done);
     }
+  }
+
+  function startMissingTimer() {
+    if (host || S || missingTimer) return;
+    missingTimer = setTimeout(() => {
+      missingTimer = null;
+      if (!S && !host) { roomMissing = true; render(); }
+    }, 5000);
+  }
+
+  function clearMissingTimer() {
+    clearTimeout(missingTimer);
+    missingTimer = null;
+  }
+
+  function retryConnect() {
+    if (!room) return;
+    noServer = false;
+    roomMissing = false;
+    clearMissingTimer();
+    render();
+    connectAll();
+  }
+
+  function pub(topic, payload, opts) {
+    for (const c of clients) {
+      if (!c || !c.connected) continue;
+      try { c.publish(topic, payload, opts); } catch {}
+    }
+  }
+
+  function publishStateOn(c) {
+    if (!host || !c || !c.connected) return;
+    try { c.publish(t(`state`), JSON.stringify(host.state), { qos: 1, retain: true }); } catch {}
+  }
+
+  function publishPrivOn(c, id) {
+    if (!host || !host.secrets || !host.secrets.priv || !c || !c.connected) return;
+    const msg = host.secrets.priv[id];
+    if (!msg) return;
+    try { c.publish(t(`p/${id}`), JSON.stringify(msg), { qos: 1, retain: true }); } catch {}
   }
 
   function publishState() {
@@ -380,27 +436,19 @@
     host.state.v = (host.state.v || 0) + 1;
     saveHost();
     S = host.state;
-    if (client && connected) {
-      client.publish(t(`state`), JSON.stringify(host.state), { qos: 1, retain: true });
-    }
+    pub(t(`state`), JSON.stringify(host.state), { qos: 1, retain: true });
   }
 
   function publishPriv(id) {
     if (!host || !host.secrets || !host.secrets.priv) return;
     const msg = host.secrets.priv[id];
-    if (!msg || !client || !connected) return;
-    client.publish(t(`p/${id}`), JSON.stringify(msg), { qos: 1, retain: true });
+    if (!msg) return;
+    pub(t(`p/${id}`), JSON.stringify(msg), { qos: 1, retain: true });
   }
 
   function publishAllPriv() {
     if (!host || !host.secrets || !host.secrets.priv) return;
     Object.keys(host.secrets.priv).forEach(publishPriv);
-  }
-
-  function hostSync() {
-    publishState();
-    publishAllPriv();
-    render();
   }
 
   function hostCommit(changed, privIds) {
@@ -409,10 +457,8 @@
     host.state.v = (host.state.v || 0) + 1;
     saveHost();
     S = host.state;
-    if (client && connected) {
-      client.publish(t(`state`), JSON.stringify(host.state), { qos: 1, retain: true });
-      if (privIds) privIds.forEach(publishPriv);
-    }
+    pub(t(`state`), JSON.stringify(host.state), { qos: 1, retain: true });
+    if (privIds) privIds.forEach(publishPriv);
     maybeVibrate(S);
     render();
   }
@@ -424,11 +470,12 @@
       let st = null;
       try { st = JSON.parse(raw); } catch { return; }
       if (!st || st.room !== room) return;
-      if (typeof st.v === `number` && st.v < lastV) return;
+      // The same state arrives once per broker: ignore anything not newer.
+      if (typeof st.v === `number` && st.v <= lastV) return;
       lastV = typeof st.v === `number` ? st.v : lastV;
       S = fixState(st);
       roomMissing = false;
-      clearTimeout(missingTimer);
+      clearMissingTimer();
       if (S.kicked && S.kicked.includes(pid)) ui.removed = true;
       syncUi(S);
       checkPending();
@@ -438,6 +485,9 @@
       let msg = null;
       try { msg = JSON.parse(raw); } catch { return; }
       if (!msg || !msg.gameId) return;
+      // Same private message from every broker: ignore the exact repeat.
+      if (myPriv && myPriv.gameId === msg.gameId && myPriv.role === msg.role
+        && (myPriv.word || null) === (msg.word || null)) return;
       myPriv = msg;
       save(privKey(room), msg);
       render();
@@ -446,20 +496,22 @@
       let a = null;
       try { a = JSON.parse(raw); } catch { return; }
       if (!a || !a.type || a.pid === pid) return;
+      // The same action arrives once per broker. hostAction returns false when
+      // nothing changed, so only the first copy publishes a new state.
       if (hostAction(a)) hostCommit(true);
     }
   }
 
   // ---------- client actions with retry ----------
   function publishAct(action) {
-    if (!client || !connected) return;
-    client.publish(t(`act`), JSON.stringify(action), { qos: 1 });
+    if (!connected) return;
+    pub(t(`act`), JSON.stringify(action), { qos: 1 });
   }
 
   function setPending(action, check) {
     pending = { action, check, sentAt: 0 };
     const cur = pending;
-    if (client && connected) {
+    if (connected) {
       publishAct(action);
       if (pending === cur) cur.sentAt = Date.now();
     }
@@ -489,7 +541,7 @@
   }
 
   function resendPending() {
-    if (!pending || host || !client || !connected) return;
+    if (!pending || host || !connected) return;
     const cur = pending;
     publishAct(cur.action);
     if (pending === cur) pending.sentAt = Date.now();
@@ -563,17 +615,17 @@
   }
 
   function leaveRoom(send) {
-    if (send && client && connected && !host) publishAct({ type: `leave`, pid });
+    if (send && connected && !host) publishAct({ type: `leave`, pid });
     pending = null;
     localStorage.removeItem(memberKey(room));
     room = ``;
     S = null;
     myPriv = null;
     lastV = -1;
-    const oldClient = client;
-    client = null;
-    connected = false;
-    if (oldClient) setTimeout(() => { try { oldClient.end(true); } catch {} }, 400);
+    roomMissing = false;
+    noServer = false;
+    clearMissingTimer();
+    endAll(400);
     history.replaceState(null, ``, location.pathname);
     render();
   }
@@ -1011,7 +1063,7 @@
     updateUrl(room);
     S = st;
     render();
-    connectBroker();
+    connectAll();
   }
 
   function joinRoomNow(code, name) {
@@ -1026,10 +1078,12 @@
     room = c;
     S = null;
     lastV = -1;
+    roomMissing = false;
+    clearMissingTimer();
     myPriv = load(privKey(c), null);
     updateUrl(c);
     render();
-    connectBroker();
+    connectAll();
   }
 
   function shareInvite() {
@@ -1079,7 +1133,7 @@
         S = h.state;
         localStorage.setItem(`smw.lastHost`, r);
         render();
-        connectBroker();
+        connectAll();
         return;
       }
       room = r;
@@ -1087,7 +1141,7 @@
       if (cleanName(ui.nameDraft) && localStorage.getItem(memberKey(r))) {
         myPriv = load(privKey(r), null);
         render();
-        connectBroker();
+        connectAll();
         return;
       }
       render();
@@ -1103,7 +1157,7 @@
   // ---------- views ----------
   function topbar() {
     return `<div class="topbar">
-      <span class="left"><span class="dot ${connected ? `on` : ``}"></span>${connected ? `Live` : `Connecting`}</span>
+      <span class="left"><span class="dot ${connected ? `on` : ``}"></span>${connected ? `Live` : `Reconnecting`}</span>
       <span class="code">${esc(room)}</span>
       <button class="linkbtn" data-act="rules">Rules</button>
     </div>`;
@@ -1152,10 +1206,21 @@
           <button class="btn" data-act="backHome">Back</button>
         </div>`;
     }
+    if (noServer) {
+      return `${topbar()}
+        <div class="big">
+          <div class="emoji">📡</div>
+          <div class="who" style="font-size:24px">No connection</div>
+          <p class="sub">Can't reach the game server. Try switching between Wi-Fi and mobile data, then tap Retry.</p>
+          <button class="btn" data-act="retryConnect">Retry</button>
+          <button class="btn ghost" data-act="backHome">Cancel</button>
+        </div>`;
+    }
     return `${topbar()}
       <div class="big">
         <div class="wait" style="justify-content:center"><span class="spin"></span> Connecting to room ${esc(room)}</div>
         <p class="sub" style="margin-top:18px">Waiting for the host to answer.</p>
+        ${ui.hostError ? `<div class="err">${esc(ui.hostError)}</div>` : ``}
         <button class="btn ghost" data-act="backHome">Cancel</button>
       </div>`;
   }
@@ -1607,12 +1672,15 @@
           room = r;
           host = h;
           S = h.state;
+          roomMissing = false;
+          clearMissingTimer();
           updateUrl(r);
           render();
-          connectBroker();
+          connectAll();
         }
         break;
       }
+      case `retryConnect`: retryConnect(); break;
       case `share`: shareInvite(); break;
       case `showWord`: ui.showWord = true; render(); break;
       case `ready`: sendReady(); break;
@@ -1672,6 +1740,25 @@
       const name = cleanName(e.target.value);
       if (ui.codeDraft.length === 5) joinRoomNow(ui.codeDraft, name);
       else startHosting();
+    }
+  });
+
+  // Phones freeze the page while the user is in another app (for example the
+  // host sharing the invite link in WhatsApp). Catch up as soon as we return.
+  document.addEventListener(`visibilitychange`, () => {
+    if (document.visibilityState !== `visible` || !room) return;
+    let any = false;
+    for (const c of clients) {
+      if (c.connected) any = true;
+      else { try { c.reconnect(); } catch {} }
+    }
+    if (host) {
+      if (any) { publishState(); publishAllPriv(); }
+      render();
+    } else if (pending) {
+      if (connected) resendPending();
+      else pending.sentAt = 0;
+      render();
     }
   });
 
