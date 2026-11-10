@@ -76,6 +76,25 @@
   .linkbtn { background: none; color: var(--muted); text-decoration: underline; font-size: 14px; padding: 10px; }
   .rules p { margin: 0 0 10px; line-height: 1.45; color: #d6d9de; font-size: 15px; }
   .topbar { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 14px; }
+  .choice { background: #111318; border: 1px solid var(--line); border-radius: 999px; padding: 8px 12px;
+    font-size: 14px; color: var(--muted); font-weight: 600; }
+  .choice.on { border-color: var(--accent); color: var(--text); background: rgba(245,184,61,.12); }
+  .clue { border-bottom: 1px solid var(--line); padding: 10px 2px; font-size: 15px; line-height: 1.4; }
+  .clue:last-child { border-bottom: 0; }
+  .clue b { color: var(--text); }
+  .clue .txt { color: #d6d9de; }
+  .clue.last { background: rgba(245,184,61,.08); border-radius: 10px; padding-left: 8px; padding-right: 8px; }
+  .clue .latest { color: var(--accent); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; margin-left: 6px; }
+  .outcome { color: var(--muted); font-size: 14px; padding: 8px 2px; border-bottom: 1px solid var(--line); }
+  .outcome:last-child { border-bottom: 0; }
+  .hist { margin-top: 12px; }
+  .hist:first-child { margin-top: 0; }
+  .hist .label { margin-bottom: 4px; }
+  .banner { border-radius: 18px; padding: 24px 16px; text-align: center; margin-bottom: 14px;
+    background: radial-gradient(120% 120% at 50% 0%, rgba(245,184,61,.18), rgba(26,29,36,.6));
+    border: 1px solid rgba(245,184,61,.35); }
+  .banner .turn { font-size: 28px; font-weight: 800; margin-top: 4px; word-break: break-word; }
+  .banner .tiny { color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: 1px; }
 </style>
 </head>
 <body>
@@ -90,10 +109,18 @@
   const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
 
   const settings = Object.assign(
-    { names: [], spies: 1, whites: 1, lang: "en", scores: {}, used: { en: [], id: [] } },
+    { names: [], spies: 1, whites: 1, lang: "en", spyReveal: false, category: "random", categoryShown: false, scores: {}, used: { en: [], id: [] } },
     load(SETTINGS_KEY, {})
   );
   let game = load(GAME_KEY, null); // in-progress game survives refresh
+  if (game) {
+    game.votes = game.votes && typeof game.votes === "object" ? game.votes : {};
+    game.voteHistory = Array.isArray(game.voteHistory) ? game.voteHistory : [];
+    game.voteOrder = Array.isArray(game.voteOrder) ? game.voteOrder : [];
+    game.voteIdx = Number.isFinite(+game.voteIdx) ? Math.trunc(+game.voteIdx) : 0;
+    game.tieCandidates = Array.isArray(game.tieCandidates) ? game.tieCandidates : null;
+    game.tieNotice = Array.isArray(game.tieNotice) ? game.tieNotice : null;
+  }
   let ui = { error: "", voteSel: null, guess: "", showRules: false, revealed: false };
 
   const persist = () => { save(SETTINGS_KEY, settings); save(GAME_KEY, game); };
@@ -108,6 +135,47 @@
     white: { name: "Mr. White", cls: "white" },
   };
   const POINTS = { civ: 2, spy: 10, white: 6 };
+
+  const pairsFor = lang => {
+    const all = window.WORD_PAIRS || {};
+    return Array.isArray(all[lang]) ? all[lang] : (Array.isArray(all.en) ? all.en : []);
+  };
+  const categoryList = () => {
+    const out = [], seen = {};
+    const declared = Array.isArray(window.WORD_CATEGORIES) ? window.WORD_CATEGORIES : [];
+    for (const c of declared) {
+      if (!c || typeof c.id !== "string" || seen[c.id]) continue;
+      seen[c.id] = 1;
+      out.push(c);
+    }
+    for (const p of pairsFor("en")) {
+      const id = p && p[2];
+      if (typeof id !== "string" || seen[id]) continue;
+      seen[id] = 1;
+      out.push({ id, en: id, idName: id });
+    }
+    return out;
+  };
+  const validCategoryKey = k => k === "random" || categoryList().some(c => c.id === k);
+  const catLabel = key => {
+    const c = categoryList().find(x => x.id === key);
+    if (!c) return String(key || "");
+    return (settings.lang === "id" ? c.idName : c.en) || c.en || c.id;
+  };
+  const randomCategory = () => {
+    const pairs = pairsFor(settings.lang);
+    const cats = categoryList().filter(c => pairs.some(p => p && p[2] === c.id));
+    if (!cats.length) return "random";
+    return cats[Math.floor(Math.random() * cats.length)].id;
+  };
+  settings.lang = settings.lang === "id" ? "id" : "en";
+  settings.spyReveal = !!settings.spyReveal;
+  settings.categoryShown = !!settings.categoryShown;
+  if (!validCategoryKey(settings.category)) settings.category = "random";
+  if (!settings.used || typeof settings.used !== "object") settings.used = { en: [], id: [] };
+  if (!Array.isArray(settings.used.en)) settings.used.en = [];
+  if (!Array.isArray(settings.used.id)) settings.used.id = [];
+  settings.scores = settings.scores && typeof settings.scores === "object" ? settings.scores : {};
 
   // Valid role counts: at least one impostor, and civilians must outnumber
   // or equal impostors with at least 2 civilians (otherwise the game is over at once).
@@ -124,21 +192,31 @@
     return "";
   }
 
-  function pickPair() {
-    const pairs = window.WORD_PAIRS[settings.lang];
-    let used = settings.used[settings.lang] || [];
-    if (used.length >= pairs.length) used = [];
-    const free = pairs.map((_, i) => i).filter(i => !used.includes(i));
-    const idx = free[Math.floor(Math.random() * free.length)];
-    settings.used[settings.lang] = [...used, idx];
-    return Math.random() < .5 ? pairs[idx] : [pairs[idx][1], pairs[idx][0]];
+  function pickPair(category) {
+    const pairs = pairsFor(settings.lang);
+    if (!pairs.length) return ["Word", "Other"];
+    const pool = pairs.map((pair, idx) => ({ pair, idx })).filter(x =>
+      !category || category === "random" || (x.pair && x.pair[2] === category));
+    const candidates = pool.length ? pool : pairs.map((pair, idx) => ({ pair, idx }));
+    let used = Array.isArray(settings.used[settings.lang]) ? settings.used[settings.lang] : [];
+    let free = candidates.filter(x => !used.includes(x.idx));
+    if (!free.length) {
+      const inCat = {};
+      candidates.forEach(x => { inCat[x.idx] = 1; });
+      used = used.filter(i => !inCat[i]);
+      free = candidates.slice();
+    }
+    const pick = free[Math.floor(Math.random() * free.length)];
+    settings.used[settings.lang] = [...used, pick.idx];
+    return Math.random() < .5 ? [pick.pair[0], pick.pair[1]] : [pick.pair[1], pick.pair[0]];
   }
 
   // ---------- game flow ----------
   function startGame() {
     const err = validate();
     if (err) { ui.error = err; return render(); }
-    const [civWord, spyWord] = pickPair();
+    const category = settings.category === "random" ? randomCategory() : settings.category;
+    const [civWord, spyWord] = pickPair(category);
     const n = settings.names.length;
     const roles = shuffle([
       ...Array(settings.spies).fill("spy"),
@@ -149,8 +227,12 @@
       name, role: roles[i], alive: true,
       word: roles[i] === "civ" ? civWord : roles[i] === "spy" ? spyWord : null,
     }));
-    game = { screen: "pass", players, civWord, spyWord, revealIdx: 0, round: 1, order: [], last: null, winner: null, whiteWin: null };
-    ui = { ...ui, error: "", revealed: false };
+    game = {
+      screen: "pass", players, civWord, spyWord, category: category === "random" ? null : category, revealIdx: 0, round: 1, order: [],
+      last: null, winner: null, whiteWin: null, votes: {}, voteOrder: [], voteIdx: 0,
+      voteHistory: [], tieCandidates: null, tieNotice: null, wrongGuess: null,
+    };
+    ui = { ...ui, error: "", revealed: false, voteSel: null };
     persist(); render();
   }
 
@@ -173,6 +255,83 @@
     return null;
   }
 
+  function aliveIndexes() {
+    return game.players.map((p, i) => i).filter(i => game.players[i].alive);
+  }
+
+  function voteAllowed() {
+    return game.tieCandidates ? game.tieCandidates.slice() : aliveIndexes();
+  }
+
+  function startVote(revote) {
+    game.voteOrder = aliveIndexes();
+    game.voteIdx = 0;
+    game.votes = {};
+    ui.voteSel = null;
+    game.screen = "vote";
+    if (!revote) { game.tieCandidates = null; game.tieNotice = null; }
+  }
+
+  function recordVoteRound(outcome) {
+    game.voteHistory.push({
+      round: game.round,
+      tie: !!game.tieCandidates,
+      votes: Object.assign({}, game.votes),
+      outcome,
+    });
+    if (game.voteHistory.length > 40) game.voteHistory = game.voteHistory.slice(-40);
+  }
+
+  function tallyLocal() {
+    const alive = aliveIndexes();
+    const allowed = voteAllowed();
+    const counts = {};
+    Object.keys(game.votes).forEach(v => {
+      const vi = +v, ti = +game.votes[v];
+      if (alive.includes(vi) && allowed.includes(ti)) counts[ti] = (counts[ti] || 0) + 1;
+    });
+    const max = Math.max(0, ...allowed.map(i => counts[i] || 0));
+    if (!max) { game.screen = "vote"; persist(); render(); return; }
+    const tied = allowed.filter(i => (counts[i] || 0) === max);
+    if (tied.length === 1) {
+      recordVoteRound({ kind: "elim", target: tied[0], role: game.players[tied[0]].role, targets: [] });
+      game.tieCandidates = null;
+      game.tieNotice = null;
+      eliminate(tied[0]);
+      return;
+    }
+    if (game.tieCandidates) {
+      recordVoteRound({ kind: "tie", targets: tied });
+      game.tieCandidates = null;
+      game.tieNotice = tied;
+      game.last = null;
+      game.screen = "tie";
+      ui.voteSel = null;
+      persist(); render();
+      return;
+    }
+    recordVoteRound({ kind: "revote", targets: tied });
+    game.tieCandidates = tied;
+    game.tieNotice = tied;
+    startVote(true);
+    persist(); render();
+  }
+
+  function submitLocalVote() {
+    const voterIdx = game.voteOrder[game.voteIdx];
+    const target = ui.voteSel;
+    if (voterIdx == null || target == null || target === voterIdx) return;
+    if (!voteAllowed().includes(target)) return;
+    game.votes[voterIdx] = target;
+    game.voteIdx++;
+    ui.voteSel = null;
+    if (game.voteIdx >= game.voteOrder.length) {
+      tallyLocal();
+      return;
+    }
+    persist(); render();
+  }
+
   function finish(winner) {
     game.winner = winner;
     game.players.forEach(p => {
@@ -189,17 +348,33 @@
     const p = game.players[i];
     p.alive = false;
     game.last = i;
+    game.votes = {};
+    game.voteOrder = [];
+    game.voteIdx = 0;
+    game.tieCandidates = null;
+    game.tieNotice = null;
     ui.voteSel = null;
     game.screen = p.role === "white" ? "whiteGuess" : "eliminated";
     ui.guess = "";
     persist(); render();
   }
 
-  function afterElimination() {
+  function nextRoundLocal() {
+    game.votes = {};
+    game.voteOrder = [];
+    game.voteIdx = 0;
+    game.tieCandidates = null;
+    game.tieNotice = null;
+    game.last = null;
+    game.wrongGuess = null;
     const w = checkWinner();
     if (w) finish(w);
     else { game.round++; game.order = makeOrder(); game.screen = "discuss"; }
     persist(); render();
+  }
+
+  function afterElimination() {
+    nextRoundLocal();
   }
 
   function submitGuess() {
@@ -212,6 +387,38 @@
     game.screen = "eliminated";
     game.wrongGuess = ui.guess.trim() || "(no guess)";
     persist(); render();
+  }
+
+  function voteHistoryHtml(opts) {
+    const blocks = [];
+    if (opts && opts.current) {
+      const live = Object.keys(game.votes || {});
+      if (live.length) {
+        blocks.push(`<div class="hist"><div class="label">Votes in progress</div>
+          ${live.map(v => `<div class="clue"><b>${esc(game.players[+v].name)}</b> voted for <span class="txt">${esc(game.players[+game.votes[v]].name)}</span></div>`).join("")}
+        </div>`);
+      }
+    }
+    (game.voteHistory || []).forEach(h => {
+      const rows = Object.keys(h.votes || {}).map(v => {
+        const voter = game.players[+v];
+        const target = game.players[+h.votes[v]];
+        if (!voter || !target) return "";
+        return `<div class="clue"><b>${esc(voter.name)}</b> voted for <span class="txt">${esc(target.name)}</span></div>`;
+      }).join("");
+      let outcome = "";
+      const o = h.outcome || {};
+      if (o.kind === "elim") {
+        const target = game.players[+o.target];
+        outcome = `<div class="outcome">${esc(target ? target.name : "?")} was voted out${o.role && ROLE[o.role] ? ` <span class="tag ${ROLE[o.role].cls}">${ROLE[o.role].name}</span>` : ""}</div>`;
+      } else {
+        const names = (o.targets || []).map(i => esc(game.players[i] ? game.players[i].name : "?")).join(", ");
+        outcome = `<div class="outcome">${o.kind === "revote" ? `Tie between ${names}. Revote.` : `Tie between ${names}. Nobody was out.`}</div>`;
+      }
+      blocks.push(`<div class="hist"><div class="label">Round ${h.round}${h.tie ? " &middot; Revote" : ""}</div>${rows}${outcome}</div>`);
+    });
+    if (!blocks.length) return "";
+    return `<div class="card"><div class="label">Voting history</div>${blocks.join("")}</div>`;
   }
 
   // ---------- views ----------
@@ -245,6 +452,13 @@
             <div class="stepper"><button data-act="whites" data-d="-1">−</button><span>${settings.whites}</span><button data-act="whites" data-d="1">+</button></div></div>
           <div class="row"><span class="tag civ">Civilians</span><span class="grow"></span><span style="font-size:20px;font-weight:700;width:34px;text-align:center;margin-right:44px">${Math.max(0, civs)}</span></div>
           ${n >= 3 ? `<div class="hint">Max ${maxImp} Spy + Mr. White for ${n} players.</div>` : ""}
+          <div class="row" style="margin-top:14px"><span>Spy knows their role</span><span class="grow"></span>
+            <div class="seg" style="width:150px;flex:0 0 auto">
+              <button data-act="spyReveal" data-v="0" class="${settings.spyReveal ? "" : "on"}">Off</button>
+              <button data-act="spyReveal" data-v="1" class="${settings.spyReveal ? "on" : ""}">On</button>
+            </div>
+          </div>
+          <div class="hint">Off keeps the classic game: a spy only sees a different word. On also tells the spy their role when they reveal it.</div>
         </div>
 
         <div class="card">
@@ -253,6 +467,19 @@
             <button data-act="lang" data-v="en" class="${settings.lang === "en" ? "on" : ""}">English</button>
             <button data-act="lang" data-v="id" class="${settings.lang === "id" ? "on" : ""}">Bahasa Indonesia</button>
           </div>
+          <div class="label" style="margin-top:16px">Category</div>
+          <div class="chips">
+            <button class="choice ${settings.category === "random" ? "on" : ""}" data-act="category" data-v="random">Random</button>
+            ${categoryList().map(c => `<button class="choice ${settings.category === c.id ? "on" : ""}" data-act="category" data-v="${esc(c.id)}">${esc(catLabel(c.id))}</button>`).join("")}
+          </div>
+          <div class="label" style="margin-top:16px">Show category to players</div>
+          <div class="seg">
+            <button data-act="catShow" data-v="1" class="${settings.categoryShown ? "on" : ""}">Shown</button>
+            <button data-act="catShow" data-v="0" class="${settings.categoryShown ? "" : "on"}">Hidden (blind)</button>
+          </div>
+          <div class="hint">${settings.categoryShown
+            ? `Everyone sees the category${settings.category === "random" ? " once it is drawn" : ""}.`
+            : "Nobody sees the category during play. It is revealed at the end."}</div>
         </div>
 
         ${scored ? `<div class="card"><div class="label">Scoreboard</div><ul class="list">
@@ -277,15 +504,18 @@
           <button class="btn" data-act="show">I'm ${esc(p.name)}, show my word</button>
         </div>`;
       const isWhite = p.role === "white";
+      const isSpy = p.role === "spy" && settings.spyReveal;
       const last = game.revealIdx === game.players.length - 1;
       return `
         <div class="topbar"><span>${esc(p.name)}</span><span>${game.revealIdx + 1} / ${game.players.length}</span></div>
+        ${settings.categoryShown && game.category ? `<div class="hint" style="text-align:center">Category: ${esc(catLabel(game.category))}</div>` : ""}
         <div class="reveal-box">
           ${isWhite
             ? `<div class="emoji">🎩</div><div class="word">You are Mr. White</div>
                <p class="sub">You have no word. Listen to the others, blend in, and try to guess their word.</p>`
-            : `<p class="sub" style="margin:0">Your secret word</p><div class="word">${esc(p.word)}</div>
-               <p class="sub">Don't say it out loud. Someone may have a different word.</p>`}
+            : `${isSpy ? `<div style="margin-bottom:12px"><span class="tag spy">Spy</span></div>` : ""}
+               <p class="sub" style="margin:0">Your secret word</p><div class="word">${esc(p.word)}</div>
+               <p class="sub">${isSpy ? "You are the Spy. Blend in with the civilians." : "Don't say it out loud. Someone may have a different word."}</p>`}
         </div>
         <button class="btn" data-act="hide">${last ? "Hide & start round" : "Hide & pass on"}</button>`;
     },
@@ -293,6 +523,7 @@
     discuss() {
       return `
         <div class="topbar"><span>Round ${game.round}</span><span>${game.players.filter(p => p.alive).length} alive</span></div>
+        ${settings.categoryShown && game.category ? `<div class="hint" style="text-align:center">Category: ${esc(catLabel(game.category))}</div>` : ""}
         <h2 style="margin-top:14px">Give one clue each</h2>
         <p class="sub">Describe your word in a single word or short phrase, in this order:</p>
         <div class="card"><ul class="list">
@@ -301,21 +532,53 @@
         ${game.players.some(p => !p.alive) ? `<div class="card"><div class="label">Out</div><ul class="list">
           ${game.players.filter(p => !p.alive).map(p => `<li class="dead">${esc(p.name)}</li>`).join("")}</ul></div>` : ""}
         <button class="btn" data-act="toVote">Everyone spoke, vote!</button>
-        <div class="center"><button class="linkbtn" data-act="peek">Forgot your word?</button></div>`;
+        <div class="center"><button class="linkbtn" data-act="peek">Forgot your word?</button></div>
+        ${voteHistoryHtml()}`;
     },
 
     vote() {
-      const alive = game.players.map((p, i) => ({ p, i })).filter(x => x.p.alive);
+      const voterIdx = game.voteOrder[game.voteIdx];
+      const allowed = voteAllowed();
+      if (voterIdx == null) {
+        return `
+          <div class="topbar"><span>Round ${game.round}</span><span>Vote</span></div>
+          <div class="big"><div class="emoji">🗳️</div><div class="who" style="font-size:26px">Voting</div>
+            <p class="sub">Start the vote to pass the phone around.</p></div>
+          <button class="btn" data-act="toVote">Start voting</button>`;
+      }
+      const voter = game.players[voterIdx];
+      const targets = allowed.filter(i => i !== voterIdx);
       return `
-        <div class="topbar"><span>Round ${game.round}</span><span>Vote</span></div>
-        <h2 style="margin-top:14px">Who gets voted out?</h2>
-        <p class="sub">Discuss, vote by pointing, then tap the player with the most votes.</p>
-        <div class="vote">
-          ${alive.map(x => `<button data-act="sel" data-i="${x.i}" class="${ui.voteSel === x.i ? "sel" : ""}">${esc(x.p.name)}</button>`).join("")}
+        <div class="topbar"><span>Round ${game.round}</span><span>Vote ${game.voteIdx + 1} / ${game.voteOrder.length}</span></div>
+        ${settings.categoryShown && game.category ? `<div class="hint" style="text-align:center">Category: ${esc(catLabel(game.category))}</div>` : ""}
+        <div class="banner">
+          <div class="tiny">Pass the phone to</div>
+          <div class="turn">${esc(voter.name)}</div>
+          <div class="hint" style="margin-top:8px">${game.tieCandidates
+            ? "Tie-break: choose one of the tied players."
+            : "Choose one player to vote out. Votes stay hidden until everyone has voted."}</div>
         </div>
-        <button class="btn danger" data-act="eliminate" ${ui.voteSel == null ? "disabled" : ""}>
-          ${ui.voteSel == null ? "Select a player" : `Eliminate ${esc(game.players[ui.voteSel].name)}`}</button>
-        <button class="btn ghost" data-act="backDiscuss">Back</button>`;
+        <div class="vote">
+          ${targets.map(i => `<button data-act="sel" data-i="${i}" class="${ui.voteSel === i ? "sel" : ""}">${esc(game.players[i].name)}</button>`).join("")}
+        </div>
+        <button class="btn danger" data-act="submitVote" ${ui.voteSel == null ? "disabled" : ""}>
+          ${ui.voteSel == null ? "Select a player" : `Submit vote for ${esc(game.players[ui.voteSel].name)}`}</button>
+        <button class="btn ghost" data-act="backDiscuss">Back to discussion</button>
+        ${voteHistoryHtml()}`;
+    },
+
+    tie() {
+      const names = (game.tieNotice || []).map(i => esc(game.players[i].name)).join(", ");
+      return `
+        <div class="topbar"><span>Round ${game.round}</span><span>Tie</span></div>
+        <div class="big">
+          <div class="emoji">🤝</div>
+          <div class="who" style="font-size:28px">Tie, nobody is out</div>
+          <p class="sub">${names} stayed tied. Nobody is eliminated this round.</p>
+          ${settings.categoryShown && game.category ? `<p class="sub" style="margin:0">Category: ${esc(catLabel(game.category))}</p>` : ""}
+        </div>
+        ${voteHistoryHtml()}
+        <button class="btn" data-act="tieContinue">Next round</button>`;
     },
 
     whiteGuess() {
@@ -341,7 +604,9 @@
           <div class="who" style="margin-bottom:10px">${esc(p.name)}</div>
           <span class="tag ${r.cls}">${r.name}</span>
           ${p.role === "white" ? `<p class="sub" style="margin-top:16px">Guessed "${esc(game.wrongGuess || "")}". Wrong!</p>` : ""}
+          ${settings.categoryShown && game.category ? `<p class="sub" style="margin:0">Category: ${esc(catLabel(game.category))}</p>` : ""}
         </div>
+        ${voteHistoryHtml()}
         <button class="btn" data-act="continue">Continue</button>`;
     },
 
@@ -356,12 +621,14 @@
         <div class="card">
           <div class="row"><span class="tag civ">Civilians</span><span class="grow"></span><b>${esc(game.civWord)}</b></div>
           <div class="row"><span class="tag spy">Spies</span><span class="grow"></span><b>${esc(game.spyWord)}</b></div>
+          ${game.category ? `<div class="row"><span>Category</span><span class="grow"></span><b>${esc(catLabel(game.category))}</b></div>` : ""}
         </div>
         <div class="card"><ul class="list">
           ${game.players.map(p => `<li><span class="${p.alive ? "" : "dead"}">${esc(p.name)}</span>
             <span class="tag ${ROLE[p.role].cls}" style="margin-left:auto">${ROLE[p.role].name}</span>
             <span class="score" style="margin-left:10px;min-width:30px;text-align:right">${settings.scores[p.name] || 0}</span></li>`).join("")}
         </ul></div>
+        ${voteHistoryHtml()}
         <button class="btn" data-act="again">Play again</button>
         <button class="btn ghost" data-act="toSetup">Change players / settings</button>`;
     },
@@ -378,11 +645,14 @@
 
     peekOne() {
       const p = game.players[game.peekIdx];
+      const isSpy = p.role === "spy" && settings.spyReveal;
       return `
         <div class="topbar"><span>${esc(p.name)}</span><span></span></div>
+        ${settings.categoryShown && game.category ? `<div class="hint" style="text-align:center">Category: ${esc(catLabel(game.category))}</div>` : ""}
         <div class="reveal-box">
           ${p.role === "white" ? `<div class="emoji">🎩</div><div class="word">You are Mr. White</div>`
-            : `<p class="sub" style="margin:0">Your secret word</p><div class="word">${esc(p.word)}</div>`}
+            : `${isSpy ? `<div style="margin-bottom:12px"><span class="tag spy">Spy</span></div>` : ""}
+               <p class="sub" style="margin:0">Your secret word</p><div class="word">${esc(p.word)}</div>`}
         </div>
         <button class="btn" data-act="backDiscuss">Hide</button>`;
     },
@@ -392,9 +662,10 @@
         <h2>How to play</h2>
         <div class="card rules">
           <p><b>Setup.</b> Everyone gets a secret word, passed around on one phone. Most players are <span class="tag civ">Civilians</span> and share the same word.
-          <span class="tag spy">Spies</span> get a <i>similar but different</i> word, and don't know they're the spy. <span class="tag white">Mr. White</span> gets no word at all and knows it.</p>
+          <span class="tag spy">Spies</span> get a <i>similar but different</i> word. By default they don't know they're the spy; the host can switch on spy reveal.
+          <span class="tag white">Mr. White</span> gets no word at all and knows it. The host can pick a word category, or random, and choose whether the category is shown or blind.</p>
           <p><b>Clues.</b> Each round, in the order shown, every player says one clue about their word. Be vague enough not to help the impostors, but clear enough to prove you're a civilian.</p>
-          <p><b>Vote.</b> Discuss, then vote out one player. Their role is revealed. If Mr. White is voted out, they get one guess at the civilians' word: correct means Mr. White wins instantly.</p>
+          <p><b>Vote.</b> Pass the phone to each living player in turn. Each secretly picks a player. The most votes sends one player out and reveals their role; a tie means a revote, and a second tie means nobody is out. Every vote is kept in the voting history. If Mr. White is voted out, they get one guess at the civilians' word: correct means Mr. White wins instantly.</p>
           <p><b>Winning.</b> Civilians win when every Spy and Mr. White is out. Impostors win if only one civilian is left.</p>
           <p><b>Points.</b> Winning civilians +2, spies +10, Mr. White +6.</p>
         </div>
@@ -449,7 +720,10 @@
         if (next >= 0 && next <= cap && (d < 0 || settings.spies + settings.whites + 1 <= Math.max(max, 1))) settings[act] = next;
         ui.error = ""; break;
       }
-      case "lang": settings.lang = b.dataset.v; break;
+      case "lang": settings.lang = b.dataset.v === "id" ? "id" : "en"; break;
+      case "spyReveal": settings.spyReveal = b.dataset.v === "1"; break;
+      case "category": if (validCategoryKey(b.dataset.v)) settings.category = b.dataset.v; break;
+      case "catShow": settings.categoryShown = b.dataset.v === "1"; break;
       case "resetScores": if (confirm("Reset all scores?")) settings.scores = {}; break;
       case "start": startGame(); return;
       case "rules": ui.showRules = true; break;
@@ -458,13 +732,30 @@
       case "hide":
         ui.revealed = false;
         if (game.revealIdx < game.players.length - 1) game.revealIdx++;
-        else { game.order = makeOrder(); game.screen = "discuss"; }
+        else {
+          game.order = makeOrder();
+          game.votes = {};
+          game.voteOrder = [];
+          game.voteIdx = 0;
+          game.tieCandidates = null;
+          game.tieNotice = null;
+          game.screen = "discuss";
+        }
         break;
-      case "toVote": game.screen = "vote"; ui.voteSel = null; break;
-      case "backDiscuss": game.screen = "discuss"; break;
-      case "sel": ui.voteSel = i; break;
-      case "eliminate": if (ui.voteSel != null) eliminate(ui.voteSel); return;
+      case "toVote": startVote(false); break;
+      case "backDiscuss":
+        game.votes = {};
+        game.voteOrder = [];
+        game.voteIdx = 0;
+        game.tieCandidates = null;
+        game.tieNotice = null;
+        game.screen = "discuss";
+        ui.voteSel = null;
+        break;
+      case "sel": if (voteAllowed().includes(i)) ui.voteSel = i; break;
+      case "submitVote": submitLocalVote(); return;
       case "continue": afterElimination(); return;
+      case "tieContinue": nextRoundLocal(); return;
       case "peek": game.screen = "peek"; break;
       case "peekOne": game.peekIdx = i; game.screen = "peekOne"; break;
       case "again": startGame(); return;
